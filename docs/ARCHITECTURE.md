@@ -46,15 +46,16 @@ Enforce this with ESLint `no-restricted-imports` (Milestone 1).
 |---|---|---|
 | `auth` | Sign-in, session bootstrap, sign-out, delete account | Supabase Auth, `delete-account` fn |
 | `onboarding` | Language → base currency → method → first account | `setup_budget`, `create_account` |
-| `accounts` | List, detail, create, archive, switcher, transfers, reconcile | `create_account`, `record_transfer`, `record_adjustment` |
-| `budget` | Envelopes, method switch, custom editor, limits | `setup_budget`, `change_budget_method`, `reallocate`, `set_limit` |
+| `accounts` | List, detail, create, archive, switcher, transfers, reconcile, FX revaluation | `create_account`, `record_transfer`, `record_adjustment`, `record_revaluation` |
+| `budget` | Envelopes, method switch, custom editor, limits, savings goals | `setup_budget`, `change_budget_method`, `reallocate`, `set_limit`, `set_savings_goal` |
 | `income` | Add income, allocation preview/override | `record_income` |
 | `expenses` | Add expense, categories | `record_expense`, `create_category` |
-| `transactions` | Unified history, edit/delete (reversal) | `reverse_entry` |
+| `transactions` | Unified history, edit/delete (reversal) | `amend_entry`, `reverse_entry` |
 | `deposits` | Recommendations, "mark opened" → linked deposit account | `create_account` |
 | `stats` | Monthly/yearly reports, charts | `report_monthly`, `report_yearly` (read RPCs) |
 | `advisor` | Consent, chat, lessons | `ai-advisor` fn |
-| `settings` | Language, theme, base currency display, privacy | `update_profile` |
+| `settings` | Language, theme, app lock, privacy, data export | `update_profile` |
+| `security` (lib-level) | App lock (Face ID / Touch ID / passcode), privacy blur in the app switcher | — (device only) |
 
 ### 3.3 Navigation (Expo Router)
 
@@ -63,10 +64,11 @@ src/app/
   _layout.tsx                 # providers: Theme, i18n, QueryClient, Auth; splash gating
   (auth)/sign-in.tsx
   (onboarding)/…              # shown until profile.onboarded_at is set
-  (tabs)/_layout.tsx          # NativeTabs: Home · Budget · Stats · Advisor
-    index.tsx                 # Home: total balance, envelopes summary, recent activity
+  (tabs)/_layout.tsx          # NativeTabs: Home · Budget · Stats · Advisor (4 tabs, final)
+    index.tsx                 # Home: total balance, account switcher, envelopes summary, recent activity
     budget/…  stats/…  advisor/…
-  accounts/[id].tsx           # pushed screens
+  accounts/index.tsx          # pushed from Home (accounts are not a tab)
+  accounts/[id].tsx
   transaction/new.tsx         # modal sheet (income | expense | transfer)
   settings/…
 ```
@@ -85,12 +87,13 @@ UI event → feature hook (useRecordExpense)
 ```
 
 - Server state: TanStack Query. Persist the cache (MMKV or AsyncStorage) for instant cold start. Read-only offline view.
-- Amounts move as strings in the API. `bigint` in the domain. Formatted only at the UI edge.
+- Amounts move as strings in the API and **stay strings in the query cache**: `JSON.stringify` throws on `BigInt`, which would break cache persistence and devtools. Query hooks parse to `Money` (`bigint`) in `select`; mutations serialise `Money` back to strings. Formatting happens only at the UI edge.
 - Realtime subscriptions are not needed in v1 (single user, single device is the main case).
 
 ### 3.5 Finance engine (`src/domain`)
 
-- `money`: `Money = { amountMinor: bigint; currency: CurrencyCode }`; `parseMoney(input, currency, locale)`, `add/sub/negate`, `allocate(total, weightsBps[]) → Money[]` (largest-remainder method, deterministic tie-break by envelope order), `convert(money, rate: Rational, target)` with banker's rounding (half-even), `format(money, locale)`.
+- `money`: `Money = { amountMinor: bigint; currency: CurrencyCode }`; `parseMoney(input, currency, locale)`, `add/sub/negate`, `allocate(total, weightsBps[]) → Money[]` (largest-remainder method, deterministic tie-break by envelope order), `convert(money, rate: Rational, target)` with banker's rounding (half-even), `format(money, locale)`, `toWire/fromWire` (string ⇄ bigint).
+- `fx`: book-value rules from DATABASE §5a: moving-average base for outgoing foreign money, realised FX result on transfers, revaluation delta.
 - `allocation`: method presets, `validateCustom(bps[])` (sum = 10000, each 1..10000), `previewIncomeAllocation`.
 - `ledger`: builders that produce the exact line sets the DB expects (for previews and tests) and invariant checkers.
 - `reports`: aggregation helpers (savings rate, budget variance).
@@ -100,11 +103,11 @@ UI event → feature hook (useRecordExpense)
 ## 4. Backend architecture (Supabase)
 
 - **Postgres** holds all data. Schema in [DATABASE.md](DATABASE.md).
-- **Write path**: `SECURITY DEFINER` PL/pgSQL functions in the `api` schema (exposed), with `set search_path = ''`. Each one checks `auth.uid()`, validates that every referenced row belongs to the caller, enforces invariants and writes. Ledger tables have no INSERT/UPDATE/DELETE grants for `authenticated`.
+- **Write path**: `SECURITY DEFINER` PL/pgSQL functions in the `api` schema, with `set search_path = ''`. Supabase exposes only `public` by default, so `api` is added to the exposed schemas (`supabase/config.toml` `[api] schemas`, and the project API settings); the client calls `supabase.schema('api').rpc(...)`. Each one checks `auth.uid()`, validates that every referenced row belongs to the caller, enforces invariants and writes. Ledger tables have no INSERT/UPDATE/DELETE grants for `authenticated`.
 - **Read path**: tables and `security_invoker` views under RLS (`account_balances`, `envelope_balances`, `monthly_summary`).
 - **Edge Functions** (Deno, TypeScript):
   - `ai-advisor`: verifies the JWT, checks consent and rate limits, builds the aggregated context with a service-role read, calls OpenAI, stores the message, returns the answer.
-  - `delete-account`: verifies the JWT, revokes the Apple refresh token if present, deletes the auth user (cascades all rows), logs a deletion receipt with no PII.
+  - `delete-account`: verifies the JWT, revokes the Apple refresh token if present, calls `private.purge_user` (the only path allowed to delete ledger rows, see DATABASE §7), deletes the auth user, logs a deletion receipt with no PII.
 - **Environments**: `local` (Supabase CLI + Docker, used in Milestone 1), `staging`, `production`. Separate projects and keys. Migrations only via `supabase/migrations` + CI. No dashboard edits in production.
 
 ## 5. Authentication
@@ -115,7 +118,8 @@ UI event → feature hook (useRecordExpense)
 | Google | Native Google Sign-In SDK (choose the SDK 58–compatible library at implementation time; needs a dev build) → ID token | `signInWithIdToken({ provider: 'google', token })` |
 
 - Use a hashed nonce (SHA-256) for Apple to stop replay.
-- Store the session in `expo-secure-store` (Keychain). Don't put tokens in AsyncStorage.
+- Session storage: Supabase sessions can be larger than `expo-secure-store` handles comfortably per item. Planned scheme (verify against the SDK 58 docs and current Supabase Expo guide at the start of M2): an AES key in `expo-secure-store` (Keychain, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`), the encrypted session in MMKV/AsyncStorage, wired as the custom `storage` adapter of `supabase-js`. Never store tokens unencrypted.
+- **App lock**: opt-in Face ID / Touch ID / device passcode via `expo-local-authentication`, offered at onboarding; re-lock after a configurable background timeout; blur overlay when the app goes to the app switcher.
 - A `profiles` row is created by an `on auth.users insert` trigger.
 - The user's display name is taken from Apple only on first sign-in (Apple sends it once); store it then.
 - Both providers need a development build (not Expo Go) and `app.json` plugin entries. That change happens in the Auth milestone with explicit sign-off (CLAUDE.md rule 8).
@@ -150,7 +154,9 @@ App ──(question, locale, JWT)──▶ ai-advisor fn
 | Ledger tampering / inconsistent balances | No write grants on ledger tables; deferred constraint trigger for zero-sum; append-only (UPDATE/DELETE revoked + trigger guard) |
 | Double-posting on retry | `idempotency_key` unique per user |
 | Secret leakage | Only URL + anon key in the client; `EXPO_PUBLIC_*` reviewed; secrets in Supabase function secrets / EAS secrets |
-| Token theft on device | Keychain storage; short-lived JWT; refresh rotation |
+| Token theft on device | Encrypted session with Keychain-held key; short-lived JWT; refresh rotation |
+| Shoulder-surfing / unlocked phone | App lock (biometrics/passcode), app-switcher blur, optional "hide balances" toggle |
+| Idempotency key reuse with different data | `request_hash` check → `idempotency_conflict` |
 | Prompt injection via user text | Advisor context excludes free-text notes; no tools; output can't trigger actions |
 | Over-collection | Analytics events carry no amounts, names or notes; crash reports scrub PII |
 | Account deletion compliance | In-app deletion → Edge Function → cascade + Apple token revoke |
@@ -161,7 +167,8 @@ App ──(question, locale, JWT)──▶ ai-advisor fn
 - **i18n**: `i18next` + `react-i18next` + `expo-localization`; keys namespaced per feature; ICU plurals (ru and kk plural rules differ from en). `Intl.NumberFormat` for numbers. Verify Hermes Intl support for `kk` at the start of Milestone 1 and fall back to a custom formatter if needed.
 - **Theming**: tokens in `src/ui/tokens`; `useTheme()` returns semantic colours; system/light/dark override saved in the profile and locally.
 - **Error handling**: typed `AppError` (network, auth, validation, invariant, unknown) mapped to localised messages; Sentry (or similar) with PII scrubbing. Choose this in the hardening milestone.
-- **Observability**: privacy-safe product analytics (screen views, feature usage counts) behind consent.
+- **Observability**: privacy-safe product analytics (screen views, feature usage counts) behind consent. No cross-app tracking, so no ATT prompt is planned; if that changes, ATT is required before any tracking SDK runs.
+- **Data export**: user-initiated CSV/JSON export of their own data (M9), generated client-side from read RPCs.
 - **CI** (GitHub Actions): typecheck, lint, jest + coverage gate, `supabase db lint`, pgTAP on an ephemeral local stack, EAS build on main.
 
 ## 9. Key decisions (ADR summary)
@@ -175,5 +182,7 @@ App ──(question, locale, JWT)──▶ ai-advisor fn
 | 5 | Supabase Edge Function proxy for OpenAI | Direct client calls | Key secrecy, rate limits, data minimisation |
 | 6 | Online-first + idempotent RPCs | Offline-first sync engine | Lower complexity for v1; path to offline stays open |
 | 7 | TanStack Query for server state | Redux, a heavy global store | Server-cache semantics fit; less boilerplate |
+| 8 | Envelopes valued at book value (moving average for foreign currency), realised FX result and manual revaluation to Unallocated | Envelopes per currency; spot-rate revaluation on every read | Keeps "envelopes = budgeted money" exact (DATABASE R1) with one base currency |
+| 9 | Reversals keep the original date; reports exclude reversed pairs | Reversal dated today | Edits correct the month they belong to |
 
 Record new decisions as ADRs in `docs/adr/NNNN-title.md` (ECC `architecture-decision-records` skill).

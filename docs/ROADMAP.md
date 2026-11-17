@@ -6,19 +6,22 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 
 | # | Milestone | Scope (PRD IDs) | Exit criteria | Est. |
 |---|---|---|---|---|
-| M0 | **Project plan** (this PR) | CLAUDE.md, PRD, ARCHITECTURE, DATABASE, DESIGN_SYSTEM, ROADMAP | Docs reviewed and approved | done |
-| **M1** | **Foundations & Finance Engine** | see below | see below | 1.5–2 wks |
-| M2 | Auth & onboarding | AUTH-1…5, UX-3 | Apple + Google sign-in on a dev build; profile trigger; onboarding writes the budget; account deletion works end to end on staging | 1.5 wks |
-| M3 | Accounts & ledger | ACC-1…7 | Create/archive accounts, opening balances, transfers incl. cross-currency, reconciliation; balances from views; pgTAP green | 1.5 wks |
-| M4 | Budget methods & income | BUD-1…5, INC-1…5 | All presets + custom editor; auto/manual allocation exact; method switch with reassignment; reversal-based edit | 1.5 wks |
+| M0 | **Project plan** | CLAUDE.md, PRD, ARCHITECTURE, DATABASE, DESIGN_SYSTEM, ROADMAP | Docs reviewed and approved | done |
+| M1.0 | **Plan review fixes** | Accounting rules (DATABASE §5a), FX policy, reversal dating, idempotency conflicts, BigInt wire format, session storage, app lock, savings goals, doc consistency | Review findings closed in the docs | done |
+| **M1a** | **Finance engine & tooling** | see below | see below | ~1 wk |
+| **M1b** | **Local database** | see below | see below | ~1 wk |
+| **M1c** | **App shell** | see below | see below | 3–4 days |
+| M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | 2 wks |
+| M3 | Accounts & ledger | ACC-1…8 | Create/archive accounts, opening balances, in/out of budget, transfers incl. cross-currency with FX result, reconciliation, revaluation; balances from views; R1 holds in all pgTAP scenarios | 1.5 wks |
+| M4 | Budget methods & income | BUD-1…6, BUD-8, INC-1…5 | All presets + custom editor; auto/manual allocation exact; method switch with reassignment; reversal-based edit | 1.5 wks |
 | M5 | Expenses, categories & limits | EXP-1…5 | Expense entry < 5 taps; categories with default envelopes; limits with progress; transaction history with undo | 1.5 wks |
-| M6 | Deposits planner | DEP-1…4 | Recommendations from the active budget; mark opened → linked deposit account; contributions as transfers | 1 wk |
+| M6 | Deposits planner & savings goals | DEP-1…4, BUD-7 | Recommendations from the active budget; mark opened → linked deposit account; contributions as transfers; goals with progress and required monthly contribution | 1.5 wks |
 | M7 | Statistics | STAT-1…5 | Monthly/yearly reports from SQL aggregates; charts in both themes; numbers match ledger fixtures | 1.5 wks |
 | M8 | AI advisor | AI-1…6 | Consent flow; Edge Function with aggregates only; rate limits; refusal + faithfulness evals pass; ru/kk/en answers | 2 wks |
-| M9 | Polish & hardening | UX-1…5, NFRs | Full ru/kk/en copy review; a11y audit; performance budget; Sentry with scrubbing; privacy manifest; offline read cache | 1.5 wks |
+| M9 | Polish & hardening | UX-1…5, NFRs | Full ru/kk/en copy review; a11y audit; performance budget; Sentry with scrubbing; privacy manifest; offline read cache; CSV/JSON data export | 1.5 wks |
 | M10 | Beta & launch | — | Staging → production Supabase (after legal check on data residency); TestFlight beta; App Store review assets; launch | 2 wks |
 
-Post-v1 candidates: offline write queue, shared/family budgets, recurring transactions, CSV export/import, home-screen widgets, notifications for limits, Android release, FX reference feed.
+Post-v1 candidates: **recurring transactions (high priority)**, split expenses, loans/debts, base-currency rebase, automatic FX revaluation, offline write queue, shared/family budgets, CSV import, home-screen widgets, notifications for limits, Android release, FX reference feed.
 
 ---
 
@@ -28,49 +31,52 @@ Post-v1 candidates: offline write queue, shared/family budgets, recurring transa
 
 **Constraints:** no Supabase cloud resources (local Docker stack only, via Supabase CLI); no `app.json` changes; only the dependencies listed below, each added with `npx expo install` and justified in the PR.
 
-### Workstreams & tasks
+M1 is split into three PRs. M1a needs no Docker and starts first. M1b depends on M1a's fixtures. M1c can run in parallel with M1b.
 
-**Finance engine** (`tdd-guide` first, tests before code)
-1. `src/domain/money`: `Money`, `CurrencyCode` (KZT, USD, EUR, RUB, CNY + minor units), parse from user input (ru/kk/en separators), add/sub/negate/compare, half-even rounding, `convert` with decimal-string rates, `allocate` (largest remainder).
-2. `src/domain/allocation`: presets (50/30/20, 80/20, 90/10, 70/20/10), custom validation (bps sum 10000, 1–12 envelopes), income allocation preview (auto + manual override validation).
-3. `src/domain/ledger`: entry builders for opening balance, income, expense, transfer (same/cross currency), reallocation, reversal; zero-sum invariant checker.
-4. Property-based tests (fast-check): allocation always sums to the total; conversion round-trips within one minor unit; reversal nets to zero.
-5. `supabase/fixtures/allocation.json` + `conversion.json` shared vectors.
+### M1a — Finance engine & tooling (`tdd-guide` first, tests before code)
+1. Tooling: Jest via `jest-expo`, `fast-check`, ESLint (`eslint-config-expo`, already added to devDependencies) with import-boundary rules (`domain` imports nothing; features don't cross-import), `npm test` script, CI workflow (tsc, lint, jest + coverage gate).
+2. `src/domain/money`: `Money`, `CurrencyCode` (KZT, USD, EUR, RUB, CNY + minor units), parse from user input (ru/kk/en separators), add/sub/negate/compare, half-even rounding, `convert` with decimal-string rates, `allocate` (largest remainder), `toWire`/`fromWire`.
+3. `src/domain/fx`: book-value rules (DATABASE §5a R2/R4): moving-average outgoing base, realised FX result on transfers, revaluation delta.
+4. `src/domain/allocation`: presets (50/30/20, 80/20, 90/10, 70/20/10), custom validation (bps sum 10000, 1–12 envelopes), income allocation preview (auto, and manual with remainder → Unallocated).
+5. `src/domain/ledger`: entry builders for opening balance, income, expense, transfer (same/cross currency, in/out of budget), reallocation, adjustment, revaluation, reversal; checkers for L1 (zero-sum per currency) and R1 (envelopes = budgeted book value).
+6. Property-based tests: allocation always sums to the total; R1 holds after any random sequence of operations; reversal nets to zero; conversion round-trips within one minor unit.
+7. `supabase/fixtures/allocation.json`, `conversion.json`, `fx.json` shared vectors (including the DATABASE §4 examples).
 
-**Backend** (`database-reviewer` on each migration)
-6. `supabase init` (config only, local) + migrations 0001–0006 from DATABASE.md §10: reference data, profiles + trigger, budget/envelopes, accounts + ledger tables + invariant triggers + append-only guards, core RPCs (`setup_budget`, `create_account`, `record_income`, `record_expense`, `record_transfer`, `reverse_entry`), views.
-7. pgTAP suites: RLS matrix (two users + anon), invariants, RPC behaviour, idempotency, allocation fixture parity with TS.
-8. Generate `database.types.ts` from the local DB.
+**Exit:** domain coverage ≥ 95%; property tests green; CI green; no new runtime dependency for the domain.
 
-**Mobile**
-9. Replace the Expo template demo (`explore`, demo components) with the target layout (`src/ui`, `src/features`, `src/domain`, `src/lib`), keeping `app.json` untouched.
-10. Design tokens + primitives: `Text`, `Surface`, `Button`, `ListRow`, `AmountText` (on domain formatting), light/dark/system theme hook.
-11. i18n: i18next + expo-localization, `ru`/`kk`/`en` resources, plural rules, number formatting check on Hermes (kk fallback if needed).
-12. Navigation shell: root providers, `(tabs)` with Home · Budget · Stats · Advisor placeholders (localised titles, no features), `(auth)` placeholder route.
+### M1b — Local database (`database-reviewer` on each migration, `security-reviewer` on RPCs)
+8. `supabase init` (config only, local) with `api` added to the exposed schemas; migrations 0001–0006 from DATABASE.md §10: reference data, profiles + trigger, budget/envelopes/categories/limits/savings_goals, accounts + ledger tables (with `base_amount_minor`, `request_hash`) + invariant triggers + append-only guards + `private.purge_user`, core RPCs (`setup_budget`, `create_account`, `record_income`, `record_expense`, `record_transfer`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry`), views returning amounts as text.
+9. pgTAP: RLS matrix (two users + anon), L1/R1 invariants, append-only guards, purge path, RPC behaviour, idempotency (retry and conflict), fixture parity with TS (allocation, FX).
+10. Generate `database.types.ts` from the local DB.
+11. Add the Supabase CLI step (`supabase start` + `supabase test db`) to CI.
 
-**Testing**
-13. Jest via `jest-expo` + React Native Testing Library; coverage gate (domain ≥ 95%); `npm test` script.
-14. ESLint import boundaries (`domain` imports nothing; features don't cross-import).
-15. CI workflow (GitHub Actions): tsc, lint, jest, `supabase start` + `supabase test db`.
+**Exit:** `supabase db reset` applies cleanly; pgTAP 100% green, including cross-user denial; unbalanced entries, ledger UPDATE/DELETE and foreign-owned ids are all rejected; fixtures pass in both Jest and pgTAP.
 
-**Security**
-16. Threat model doc section reviewed; `security-reviewer` pass on migrations/RPCs; check that no secrets exist and `.env.example` lists only public vars.
+### M1c — App shell (Mobile)
+12. **Day-1 spike:** Hermes `Intl` output for `kk` and `ru` (numbers, currency, dates, plurals) on the iOS simulator; pick a custom formatter fallback in `domain/money/format` if needed.
+13. Replace the Expo template demo (`explore`, demo components) with the target layout (`src/ui`, `src/features`, `src/domain`, `src/lib`), keeping `app.json` untouched.
+14. Design tokens + primitives: `Text`, `Surface`, `Button`, `ListRow`, `AmountText` (on domain formatting), light/dark/system theme hook.
+15. i18n: i18next + expo-localization, `ru`/`kk`/`en` resources, plural rules.
+16. Navigation shell: root providers (theme, i18n, QueryClient), `(tabs)` with Home · Budget · Stats · Advisor placeholders (localised titles, no features), `(auth)` placeholder route.
+
+**Exit:** the app boots on the iOS simulator with tabs, light/dark and language switching (ru/kk/en); no template screens remain; `npx tsc --noEmit`, `npx expo lint`, `npm test` green.
 
 ### Dependencies M1 would add (pending approval)
-`jest-expo`, `jest`, `@testing-library/react-native`, `fast-check` (dev) · `i18next`, `react-i18next`, `expo-localization` · `zod` · `@tanstack/react-query` (shell provider only) · Supabase CLI (dev tool, not an app dependency). `@supabase/supabase-js` and `expo-secure-store` wait until M2.
+- Dev: `jest-expo`, `jest`, `@testing-library/react-native`, `fast-check`. (`eslint` + `eslint-config-expo` are already present.)
+- App: `i18next`, `react-i18next`, `expo-localization`, `zod`, `@tanstack/react-query` (shell provider only).
+- Tools (not app dependencies): Supabase CLI, Docker.
+- Waiting until M2: `@supabase/supabase-js`, `expo-secure-store`, `expo-local-authentication`, the MMKV/AsyncStorage session store, Apple and Google sign-in libraries.
 
-### Exit criteria
-- [ ] Domain coverage ≥ 95%, property tests green, fixtures pass in **both** Jest and pgTAP.
-- [ ] Local `supabase db reset` applies all migrations cleanly; pgTAP 100% green, including cross-user RLS denial.
-- [ ] Unbalanced entries, ledger UPDATE/DELETE and foreign-owned ids are all rejected by tests.
-- [ ] App boots on the iOS simulator with tabs, light/dark and language switching (ru/kk/en); no template screens remain.
-- [ ] `npx tsc --noEmit`, `npx expo lint`, `npm test` green in CI.
+### Exit criteria (whole M1)
+- [ ] All M1a/M1b/M1c exits met.
 - [ ] `app.json` unchanged; no cloud Supabase project created.
+- [ ] `security-reviewer` pass on migrations and RPCs; no secrets in the repo; `.env.example` lists only public vars.
 
 ### Risks
 | Risk | Mitigation |
 |---|---|
-| Hermes `Intl` lacks full `kk` locale data | Spike on day 1; custom formatter fallback in `domain/money/format` |
-| TS/SQL allocation drift | Shared fixtures; CI fails on mismatch |
-| BigInt over JSON | Amounts as strings at the boundary; zod parsing |
-| Docker unavailable for local Supabase | Domain work proceeds independently; DB track can run in CI |
+| Hermes `Intl` lacks full `kk` locale data | Day-1 spike in M1c; custom formatter fallback in `domain/money/format` |
+| TS/SQL drift (allocation, FX book value) | Shared fixtures; CI fails on mismatch |
+| BigInt in JSON (cache, network) | Strings at every boundary (`toWire`/`fromWire`); zod parsing |
+| Moving-average FX confuses users | Show "≈" market value next to book value; "Update to current rate" action; explain in advisor lessons |
+| Docker unavailable for local Supabase | M1a proceeds independently; M1b can run in CI |

@@ -92,15 +92,20 @@ SF Symbols via `expo-symbols` (iOS), with a mapped fallback set for other platfo
 | `Chart` primitives | Bar (monthly income vs expense), donut (by envelope), line (savings). Library choice in the Stats milestone (Victory Native / Skia, checked against SDK 58) |
 | `Disclaimer` | Advisor footer, standing text |
 | `Toast` | Non-blocking confirmations with Undo (fires `reverse_entry`) |
+| `LockScreen` | App lock (Face ID / passcode prompt), app-switcher blur overlay |
+| `MaskedAmount` | Mode of `AmountText` when "hide balances" is on (`•••• ₸`), VoiceOver says "hidden" |
+| `UnallocatedBanner` | Shows money waiting in Unallocated (or a negative Unallocated) with an "Assign" action |
+| `GoalProgress` | Savings goal: progress ring, target, date, required monthly contribution |
+| `BookValueHint` | For foreign-currency accounts: book value vs "≈" current value, "Update to current rate" action |
 
 Each component has: typed props, light/dark support, Dynamic Type check, VoiceOver label/role, and an RNTL test for interactive behaviour.
 
 ## 4. Key screens (wireframe intent)
 
-- **Home**: large total balance (base currency, "≈" when converting), account switcher, envelope cards (horizontal scroll or grid), "This month" income vs expense, recent transactions, a floating "+" for the new-transaction sheet.
+- **Home**: large total balance (base currency, "≈" when converting; eye icon to hide balances), account switcher (opens the accounts list; accounts aren't a tab), Unallocated banner when needed, envelope cards (horizontal scroll or grid), "This month" income vs expense, recent transactions, a floating "+" for the new-transaction sheet.
 - **New transaction sheet**: segmented type → AmountInput → account → envelope/category (smart default from category) → date → note → Save. For income: allocation preview with an "Edit split" toggle.
 - **Budget**: method header (e.g. 50/30/20 with a segmented bar), envelope list with balance and monthly limit progress, "Deposits plan" entry card.
-- **Deposits plan**: recommended accounts with suggested name, %, monthly amount, an explanation and "Mark as opened".
+- **Deposits plan**: recommended accounts with suggested name, %, monthly amount, an explanation and "Mark as opened"; savings goals per envelope.
 - **Stats**: month/year switcher, income vs expense bars, envelope performance table, savings line.
 - **Advisor**: consent screen (first use), chat with suggested prompts, lessons carousel, persistent disclaimer.
 

@@ -20,8 +20,8 @@ Expo changes every SDK. **Never write Expo/RN API code from memory.** Fetch `htt
 
 ## Hard rules
 
-1. **Money is never a JS `number` or a float.** Amounts are integer *minor units* (`bigint` in TS, `bigint` in Postgres) together with an ISO 4217 currency code. Use `src/domain/money` for all arithmetic, rounding, splitting and formatting. Amounts travel over the network as **strings**, never JSON numbers.
-2. **The ledger is append-only.** No UPDATE or DELETE on `ledger_entries` / `ledger_lines` / `envelope_lines`. Corrections are reversal entries. Each entry's lines sum to zero per currency (enforced in the DB).
+1. **Money is never a JS `number` or a float.** Amounts are integer *minor units* (`bigint` in TS, `bigint` in Postgres) together with an ISO 4217 currency code. Use `src/domain/money` for all arithmetic, rounding, splitting and formatting. Amounts travel over the network as **strings**, never JSON numbers: RPC parameters, view/RPC results (cast to `text` in SQL) and the TanStack Query cache (`JSON.stringify` throws on `BigInt`). Convert with `toWire`/`fromWire` in `features/*/api`.
+2. **The ledger is append-only.** No UPDATE or DELETE on `ledger_entries` / `ledger_lines` / `envelope_lines` (the only exception is `private.purge_user` on account deletion). Corrections are reversal entries that keep the original date. Each entry's lines sum to zero per currency, and envelopes always equal the book value of budgeted accounts (DATABASE §5a, R1).
 3. **All financial writes go through Postgres RPC functions**, never direct table inserts from the client. RLS grants SELECT only on ledger tables.
 4. **RLS on every table**, with `user_id = (select auth.uid())`. A migration that adds a table without RLS policies and a pgTAP test fails review.
 5. **No secrets in the client bundle.** Only `EXPO_PUBLIC_SUPABASE_URL` and the anon key go in the client. The OpenAI key, the service-role key and Apple/Google secrets live in Supabase Edge Function secrets only.
@@ -37,13 +37,14 @@ Expo changes every SDK. **Never write Expo/RN API code from memory.** Fetch `htt
 src/
   app/                 # Expo Router routes ONLY (screens + _layout). Thin: compose feature components.
     (auth)/            # sign-in
-    (tabs)/            # home, budget, accounts, stats, advisor
+    (tabs)/            # home, budget, stats, advisor (accounts are pushed screens from Home)
   features/<feature>/  # accounts, budget, income, expenses, deposits, stats, advisor, auth, settings
     api/               # Supabase queries/RPC wrappers + TanStack Query hooks
     components/        # feature UI
     model/             # feature-level types, mappers (DB row <-> domain)
-  domain/              # PURE TypeScript, no React/RN/Supabase imports. 100% unit tested.
-    money/             # Money type, parse/format, add/sub, allocate (largest remainder)
+  domain/              # PURE TypeScript, no React/RN/Supabase imports. ≥ 95% covered.
+    money/             # Money type, parse/format, add/sub, allocate (largest remainder), wire format
+    fx/                # book value: moving average, realised FX result, revaluation
     allocation/        # budget methods, presets, custom validation
     ledger/            # entry builders + invariants (mirrors DB rules for previews)
     reports/           # aggregation helpers for statistics
@@ -74,14 +75,15 @@ The current `src/components`, `src/constants/theme.ts` and `src/hooks` are Expo 
 
 - Server state: TanStack Query (cache keys per feature, `['accounts', userId]`). After an RPC succeeds, invalidate the affected keys (balances, envelopes, stats).
 - Local UI state: React state, or a small Zustand store only when state really crosses screens.
-- Every mutation RPC takes an `idempotency_key` (uuid v4 made on the client) so retries never double-post.
+- Every mutation RPC takes an `idempotency_key` (uuid v4 made on the client) so retries never double-post. Reusing a key with different parameters returns `idempotency_conflict`; generate a new key per user intent, not per retry.
+- RPCs live in the `api` schema: call them with `supabase.schema('api').rpc(...)`.
 - Online-first for v1. Offline write queueing is a later milestone; design the RPCs for it now (idempotency).
 
 ## Testing (TDD for domain and DB)
 
 - `src/domain/**`: write the tests first (ECC `tdd-guide`). Target ≥ 95% line coverage, plus property-based tests for money/allocation (sums are always preserved).
 - DB: pgTAP tests for each RLS policy (owner can read; another user can't read or write), each RPC (happy path, ownership checks, invariant violations) and each ledger invariant.
-- Shared vectors in `supabase/fixtures/*.json` keep the TS and SQL allocation algorithms identical.
+- Shared vectors in `supabase/fixtures/*.json` (allocation, conversion, FX book value) keep the TS and SQL algorithms identical.
 - Components: React Native Testing Library for interactive components; no snapshot-only tests.
 - E2E (later milestone): Maestro flows for sign-in → add income → see allocation.
 - Before saying a task is done, run `npx tsc --noEmit`, `npx expo lint` and the test suite.
@@ -100,10 +102,10 @@ Six workstreams. Each says who owns it, which ECC agents and skills to use, and 
 |---|---|---|---|
 | **Mobile** | `src/app`, `src/features/*/components`, `src/ui`, i18n files, navigation, theming, accessibility | `architect` (screen/module design), `react-reviewer`, `typescript-reviewer`, `a11y-architect`; skills `react-native-patterns`, `design-system`, `liquid-glass-design`, `i18n-sync`, `frontend-a11y` | Do money arithmetic in components; call Supabase tables directly from UI; hard-code strings |
 | **Backend** | `supabase/migrations`, `supabase/functions`, RPCs, RLS, `src/lib/supabase`, `src/features/*/api` | `database-reviewer`, `architect`; skills `postgres-patterns`, `database-migrations`, `api-design`, `backend-patterns` | Add a table without RLS + tests; expose service-role key; allow direct writes to ledger tables |
-| **Finance engine** | `src/domain/**`, ledger invariants in SQL, allocation algorithm parity, `supabase/fixtures` | `tdd-guide`, `type-design-analyzer`, `planner`; skills `tdd-workflow`, `typescript-patterns` | Use floats; change rounding rules without updating fixtures in TS and SQL together; import React/Supabase in `domain` |
+| **Finance engine** | `src/domain/**`, ledger invariants and accounting rules (DATABASE §5a) in SQL, allocation/FX parity, `supabase/fixtures` | `tdd-guide`, `type-design-analyzer`, `planner`; skills `tdd-workflow`, `typescript-patterns` | Use floats; change rounding rules without updating fixtures in TS and SQL together; import React/Supabase in `domain` |
 | **AI** | `supabase/functions/ai-advisor`, prompt templates, data minimisation, `src/features/advisor` | `architect`, `security-reviewer`; skills `cost-aware-llm-pipeline`, `prompt-optimizer`, `agent-security-hardening`, `ai-regression-testing` | Give the model write tools; send raw transaction descriptions or PII; recommend specific securities; run without rate limits |
 | **Testing** | Test strategy, Jest/RNTL setup, pgTAP harness, Maestro flows, CI gates, coverage | `tdd-guide`, `e2e-runner`, `pr-test-analyzer`, `silent-failure-hunter`; skills `verification-loop`, `react-testing`, `e2e-testing` | Merge with failing or skipped financial tests; replace behaviour tests with snapshots |
-| **Security & privacy** | Threat model, RLS review, secrets, auth flows, account deletion, AI data flow, privacy manifest, KZ data-law questions | `security-reviewer`, `database-reviewer`; skills `security-review`, `security-scan`, `agent-security-hardening` | Approve a PR that logs amounts/PII to analytics, or ships a secret in `EXPO_PUBLIC_*` |
+| **Security & privacy** | Threat model, RLS review, secrets, auth flows, session storage, app lock, account deletion, AI data flow, privacy manifest, KZ data-law questions | `security-reviewer`, `database-reviewer`; skills `security-review`, `security-scan`, `agent-security-hardening` | Approve a PR that logs amounts/PII to analytics, or ships a secret in `EXPO_PUBLIC_*` |
 
 Hand-offs: Finance engine defines the domain types and rules → Backend mirrors them in SQL with the shared fixtures → Mobile consumes them through `features/*/api` hooks → Testing and Security gate the merge. The `planner` agent breaks each milestone into tasks; `architect` signs off any change to the layering above.
 

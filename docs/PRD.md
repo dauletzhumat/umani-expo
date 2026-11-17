@@ -35,7 +35,8 @@ IDs are referenced from ROADMAP and tests.
 - AUTH-2 Sign in with Google.
 - AUTH-3 Sessions persist securely (Keychain via secure storage); silent refresh.
 - AUTH-4 Sign out; **delete account and all data** in-app (App Store requirement), including revoking the Apple token.
-- AUTH-5 First-run onboarding: language, base currency, budget method.
+- AUTH-5 First-run onboarding: language, base currency, budget method, app lock offer.
+- AUTH-6 **App lock**: opt-in Face ID / Touch ID / device passcode; re-lock after a background timeout (default 1 min); content blurred in the app switcher; optional "hide balances" toggle on Home.
 
 ### 4.2 Budget allocation methods (BUD)
 - BUD-1 Presets (envelopes with default names, localised):
@@ -45,24 +46,28 @@ IDs are referenced from ROADMAP and tests.
   - **70/20/10** — Living 70 · Savings 20 · Debt/Giving 10
 - BUD-2 **Custom**: 1–12 envelopes, user-named, percentages with up to 2 decimals (stored as basis points) that must total exactly 100%.
 - BUD-3 Users can switch method later. Past allocations stay as they were; new income uses the new method. Envelope balances carry over (or are reassigned by the user when an envelope is removed).
-- BUD-4 Each budget has one **base currency** in which envelopes are tracked.
+- BUD-4 Each budget has one **base currency** in which envelopes are tracked. It can't be changed after the first transaction in v1 (a "rebase" flow is post-v1).
 - BUD-5 Unspent envelope money rolls over month to month (envelope = running balance). Monthly limits are tracked separately (EXP-4).
+- BUD-6 A system **Unallocated** envelope holds money not yet assigned (opening balances, manual-allocation remainders, FX differences). The UI prompts the user to assign it.
+- BUD-7 **Savings goals**: each savings envelope can have a target amount and an optional target date; progress and the required monthly contribution are shown.
+- BUD-8 The **Debt/Giving** envelope in 70/20/10 is an ordinary envelope; tracking loans and debts as their own entities is post-v1.
 
 ### 4.3 Financial accounts (ACC)
 - ACC-1 Multiple accounts: cash, card, current, savings, deposit.
 - ACC-2 Supported currencies: **KZT, USD, EUR, RUB, CNY**. Each account has exactly one currency.
 - ACC-3 Opening balance at creation (recorded as a ledger entry, not a mutable field).
-- ACC-4 Balance shown per account and as a total in base currency (using the latest user-recorded or reference rate, labelled "approximate").
+- ACC-4 Balance shown per account and as a total in base currency (using the latest user-recorded or reference rate, labelled "approximate"). For budgeting, foreign-currency money is valued at book value (DATABASE §5a); the user can update an account to the current rate, and the difference goes to Unallocated.
 - ACC-5 Account switcher (filter the home and transaction views by account, or "All").
 - ACC-6 **Internal transfers** between own accounts, including cross-currency transfers where the user enters both amounts (the effective rate is derived and shown).
-- ACC-7 Archive accounts (hidden, history kept). Manual balance adjustment (reconciliation) creates an adjustment entry.
+- ACC-7 Archive accounts (hidden, history kept). Manual balance adjustment (reconciliation) creates an adjustment entry; the difference goes to Unallocated.
+- ACC-8 Each account is **in the budget** (default) or **outside it** (e.g. a brokerage or someone else's money held for them). Outside accounts count in net worth and reports but not in envelopes. Moving money across that boundary takes from or adds to an envelope.
 
 ### 4.4 Income (INC)
 - INC-1 Manual income entry: amount, account, date, category (salary, freelance, gift, other…), note.
 - INC-2 Automatic allocation into envelopes using the active method, with an exact split (no rounding loss; see DATABASE §Allocation).
-- INC-3 Optional manual allocation: the user overrides the split per entry; the parts must equal the total.
+- INC-3 Optional manual allocation: the user overrides the split per entry; parts may total less than the income, and the remainder goes to Unallocated.
 - INC-4 Income in a non-base currency is converted to the base currency for envelope tracking at a rate the user confirms (pre-filled when available).
-- INC-5 Edit = reverse + re-enter (shown to the user as an ordinary edit).
+- INC-5 Edit = reverse + re-enter in one atomic step (shown to the user as an ordinary edit). The correction keeps the original date, so past reports update.
 
 ### 4.5 Expenses (EXP)
 - EXP-1 Manual expense entry: amount, account, envelope, category, date, note.
@@ -81,7 +86,7 @@ IDs are referenced from ROADMAP and tests.
 - STAT-1 Income vs expenses per month and per year, in base currency.
 - STAT-2 Spending by category and by envelope.
 - STAT-3 Budget performance: planned allocation vs actual spending per envelope; limit adherence.
-- STAT-4 Savings progress: savings envelope balances and deposit account balances over time; savings rate.
+- STAT-4 Savings progress: savings envelope balances and deposit account balances over time; progress toward savings goals (BUD-7); savings rate.
 - STAT-5 Monthly and yearly report screens; shareable image export (later).
 
 ### 4.8 AI financial advisor (AI)
@@ -106,7 +111,7 @@ IDs are referenced from ROADMAP and tests.
 | Accuracy | Integer minor-unit arithmetic everywhere; ledger invariants enforced in the DB; allocation sums are exact. |
 | Reliability | Append-only ledger; idempotent writes; reconciliation checks. |
 | Security | RLS on all tables; RPC-only financial writes; secrets server-side only; OWASP MASVS-L1 baseline. |
-| Privacy | Data minimisation; no amounts or PII in analytics; AI receives aggregates only; App Store privacy manifest; in-app data deletion and export (later). Legal review of Kazakhstan personal-data law (including data localisation) **before public launch**. |
+| Privacy | Data minimisation; no amounts or PII in analytics; no cross-app tracking (so no ATT prompt); AI receives aggregates only; App Store privacy manifest; in-app data deletion (M2) and CSV/JSON export (M9). Legal review of Kazakhstan personal-data law (including data localisation) **before public launch**. |
 | Performance | Cold start < 2 s on iPhone 12; transaction entry → updated balance < 500 ms perceived (optimistic UI). |
 | Accessibility | WCAG 2.2 AA contrast; Dynamic Type to XXL without truncating amounts; VoiceOver labels for amounts. |
 | Testability | Pure domain layer ≥ 95% coverage; pgTAP for RLS/RPCs; E2E for critical flows. |
@@ -119,6 +124,11 @@ IDs are referenced from ROADMAP and tests.
 - Shared/family budgets with multiple users (later candidate).
 - Android and web releases (the code stays portable).
 - Offline-first sync (online-first with idempotent retries in v1).
+- Recurring transactions (salary templates): **high-priority post-v1**; v1 offers "repeat last income".
+- Split expenses across several categories/envelopes (the data model already allows it).
+- Loans and debts as their own entities (BUD-8).
+- Changing a budget's base currency after the first transaction (BUD-4).
+- Automatic FX revaluation (manual only in v1).
 
 ## 7. Open questions
 
@@ -127,3 +137,5 @@ IDs are referenced from ROADMAP and tests.
 3. Monetisation (subscription for the AI advisor?) affects AI rate limits and the paywall milestone.
 4. Minimum iOS version for SDK 58.
 5. Final brand assets (the current icon and splash are Expo defaults).
+
+Decided: FX valuation policy (book value, moving average, manual revaluation; ARCHITECTURE ADR 8); reversal dating (ADR 9).
