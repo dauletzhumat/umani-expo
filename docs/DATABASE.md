@@ -98,7 +98,7 @@ System accounts (hidden) are created lazily per user and currency: they're the c
 | entry_id | uuid → ledger_entries | |
 | user_id | uuid | denormalised for RLS/indexing |
 | account_id | uuid → accounts | |
-| amount_minor | bigint | signed: + increases the account. ≠ 0, except `fx_revaluation` lines (= 0) |
+| amount_minor | bigint | signed: + increases the account. ≠ 0, except lines of `fx_revaluation` entries (= 0) and of their reversals |
 | currency | char(3) | must equal the account currency (trigger) |
 | base_amount_minor | bigint null | **book value** of this movement in the budget base currency. Required on lines of user accounts, null on system accounts (trigger). Equals `amount_minor` when the account currency = base currency. On unbudgeted accounts it's the value at the user-confirmed rate, used only for reports and excluded from R1. See §5a |
 
