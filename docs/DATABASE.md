@@ -163,7 +163,8 @@ These rules make "money in envelopes" always equal "money in budgeted accounts".
 - **R2 — Book value (base amount).**
   - For an account in the base currency, base = amount.
   - Money **entering** a foreign-currency account from outside (income, opening balance, adjustment) is valued at the rate the user confirms (pre-filled from the last rate used or a reference rate).
-  - Money **leaving** a foreign-currency account (expense, transfer out) is valued at **moving average**: `base = round_half_even(book_value × amount / balance)`. If the amount equals the whole balance, base = the whole book value (no residue).
+  - Money **leaving** a foreign-currency account (expense, transfer out, negative adjustment) is valued at **moving average**: `base = round_half_even(book_value × amount / balance)`. If the amount equals the whole balance, base = the whole book value (no residue).
+  - **Overdraft**: the part up to the positive balance uses the moving average; any excess (or everything, when the balance is ≤ 0) is valued at the rate the user confirms. Without a rate the operation is rejected (`rate_required`).
   - A transfer between two budgeted accounts: base-out by moving average. If the destination is in the base currency, base-in = the received amount; otherwise base-in = base-out (the book value moves with the money). The difference `base_in − base_out` (realised FX result) goes to Unallocated; it's zero for same-currency and foreign→foreign transfers.
 - **R3 — Budget boundary.** Envelope lines are created only when money crosses the budget boundary:
 

@@ -1,0 +1,29 @@
+{
+  "description": "FX book-value rules (DATABASE.md §4 examples and §5a R2/R4). Amounts are minor units as strings; base currency KZT. Shared by Jest (src/domain/fx/book-value.test.ts) and pgTAP.",
+  "incoming": [
+    { "name": "1 000 USD income at 505.00", "amount": "100000", "currency": "USD", "rate": "505.00", "expectedBase": "50500000" },
+    { "name": "base-currency income ignores the rate", "amount": "1250000", "currency": "KZT", "rate": null, "expectedBase": "1250000" },
+    { "name": "half-even on income", "amount": "1", "currency": "EUR", "rate": "550.5", "expectedBase": "550" }
+  ],
+  "outgoing": [
+    { "name": "40 USD expense at moving average", "balance": "100000", "bookValue": "50500000", "currency": "USD", "amount": "4000", "rate": null, "expectedBase": "2020000" },
+    { "name": "spending the whole balance takes the whole book value", "balance": "3", "bookValue": "1000", "currency": "USD", "amount": "3", "rate": null, "expectedBase": "1000" },
+    { "name": "average rounds half-even down", "balance": "4", "bookValue": "10", "currency": "USD", "amount": "1", "rate": null, "expectedBase": "2" },
+    { "name": "average rounds half-even up", "balance": "4", "bookValue": "10", "currency": "USD", "amount": "3", "rate": null, "expectedBase": "8" },
+    { "name": "average rounds to nearest", "balance": "3", "bookValue": "10", "currency": "USD", "amount": "2", "rate": null, "expectedBase": "7" },
+    { "name": "overdraft: excess valued at the confirmed rate", "balance": "1000", "bookValue": "505000", "currency": "USD", "amount": "1500", "rate": "506", "expectedBase": "758000" },
+    { "name": "empty account: everything at the confirmed rate", "balance": "0", "bookValue": "0", "currency": "USD", "amount": "200", "rate": "500", "expectedBase": "100000" },
+    { "name": "base-currency account: base equals amount", "balance": "5000", "bookValue": "5000", "currency": "KZT", "amount": "1200", "rate": null, "expectedBase": "1200" }
+  ],
+  "transfer": [
+    { "name": "100 USD -> 50 300 KZT realises a 200 KZT loss", "balance": "100000", "bookValue": "50500000", "fromCurrency": "USD", "sent": "10000", "received": "5030000", "toCurrency": "KZT", "rate": null, "expectedBaseOut": "5050000", "expectedBaseIn": "5030000", "expectedFxResult": "-20000" },
+    { "name": "USD -> EUR carries the book value", "balance": "100000", "bookValue": "50500000", "fromCurrency": "USD", "sent": "10000", "received": "9200", "toCurrency": "EUR", "rate": null, "expectedBaseOut": "5050000", "expectedBaseIn": "5050000", "expectedFxResult": "0" },
+    { "name": "KZT -> USD carries the KZT amount", "balance": "10000000", "bookValue": "10000000", "fromCurrency": "KZT", "sent": "5100000", "received": "10000", "toCurrency": "USD", "rate": null, "expectedBaseOut": "5100000", "expectedBaseIn": "5100000", "expectedFxResult": "0" },
+    { "name": "same currency", "balance": "500", "bookValue": "500", "fromCurrency": "KZT", "sent": "200", "received": "200", "toCurrency": "KZT", "rate": null, "expectedBaseOut": "200", "expectedBaseIn": "200", "expectedFxResult": "0" }
+  ],
+  "revalue": [
+    { "name": "USD strengthens to 510", "balance": "100000", "bookValue": "50500000", "currency": "USD", "rate": "510", "expectedTarget": "51000000", "expectedDelta": "500000" },
+    { "name": "USD weakens to 500", "balance": "100000", "bookValue": "50500000", "currency": "USD", "rate": "500", "expectedTarget": "50000000", "expectedDelta": "-500000" },
+    { "name": "no change", "balance": "100000", "bookValue": "50500000", "currency": "USD", "rate": "505", "expectedTarget": "50500000", "expectedDelta": "0" }
+  ]
+}
