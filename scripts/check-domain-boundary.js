@@ -11,7 +11,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve(__dirname, '..');
+// Run via npm scripts, which always execute from the project root.
+const ROOT = process.cwd();
 const DOMAIN = path.join(ROOT, 'src', 'domain');
 const FIXTURES = path.join(ROOT, 'supabase', 'fixtures');
 const TEST_ONLY_PACKAGES = new Set(['@jest/globals', 'fast-check']);

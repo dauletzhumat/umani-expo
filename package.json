@@ -43,7 +43,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "lint:domain": "expo lint src/domain scripts/check-domain-boundary.js",
     "typecheck": "tsc --noEmit",
+    "typecheck:domain": "tsc --noEmit -p tsconfig.domain.json",
     "test": "node scripts/check-domain-boundary.js && jest",
     "test:watch": "jest --watch",
     "test:coverage": "node scripts/check-domain-boundary.js && jest --coverage"
