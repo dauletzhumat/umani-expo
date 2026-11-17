@@ -1,0 +1,18 @@
+{
+  "description": "Largest-remainder allocation of an integer minor-unit total by basis-point weights (sum 10000). Ties go to the lower index. Shared by Jest (src/domain/money/allocate.test.ts) and pgTAP (DATABASE.md §5).",
+  "cases": [
+    { "name": "thirds", "total": "100", "weightsBps": [3333, 3333, 3334], "expected": ["33", "33", "34"] },
+    { "name": "one minor unit, 50/30/20", "total": "1", "weightsBps": [5000, 3000, 2000], "expected": ["1", "0", "0"] },
+    { "name": "500 000 KZT salary, 50/30/20", "total": "50000000", "weightsBps": [5000, 3000, 2000], "expected": ["25000000", "15000000", "10000000"] },
+    { "name": "zero total", "total": "0", "weightsBps": [5000, 5000], "expected": ["0", "0"] },
+    { "name": "small thirds", "total": "10", "weightsBps": [3333, 3333, 3334], "expected": ["3", "3", "4"] },
+    { "name": "tie goes to lower index", "total": "1", "weightsBps": [5000, 5000], "expected": ["1", "0"] },
+    { "name": "odd total, even split", "total": "3", "weightsBps": [5000, 5000], "expected": ["2", "1"] },
+    { "name": "70/20/10", "total": "101", "weightsBps": [7000, 2000, 1000], "expected": ["71", "20", "10"] },
+    { "name": "two leftovers by largest remainder", "total": "99999", "weightsBps": [5000, 3000, 2000], "expected": ["49999", "30000", "20000"] },
+    { "name": "zero weight envelope", "total": "7", "weightsBps": [0, 10000], "expected": ["0", "7"] },
+    { "name": "90/10", "total": "12345", "weightsBps": [9000, 1000], "expected": ["11111", "1234"] },
+    { "name": "80/20", "total": "12345", "weightsBps": [8000, 2000], "expected": ["9876", "2469"] },
+    { "name": "single envelope", "total": "999", "weightsBps": [10000], "expected": ["999"] }
+  ]
+}

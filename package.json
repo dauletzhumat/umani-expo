@@ -31,6 +31,9 @@
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "fast-check": "^4.10.2",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.15",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -39,7 +42,27 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/check-domain-boundary.js && jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "node scripts/check-domain-boundary.js && jest --coverage"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "collectCoverageFrom": [
+      "src/domain/**/*.ts",
+      "!src/domain/**/*.test.ts",
+      "!src/domain/**/index.ts"
+    ],
+    "coverageThreshold": {
+      "./src/domain/": {
+        "lines": 95,
+        "branches": 95,
+        "functions": 95,
+        "statements": 95
+      }
+    }
   },
   "private": true
 }
