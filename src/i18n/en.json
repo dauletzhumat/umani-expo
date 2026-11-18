@@ -77,7 +77,8 @@
   "lock": {
     "title": "UMANI is locked",
     "unlock": "Unlock",
-    "prompt": "Unlock UMANI"
+    "prompt": "Unlock UMANI",
+    "signOut": "Sign out"
   },
   "language": {
     "ru": "Русский",

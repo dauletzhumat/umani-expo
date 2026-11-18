@@ -77,7 +77,8 @@
   "lock": {
     "title": "UMANI заблокирован",
     "unlock": "Разблокировать",
-    "prompt": "Разблокируйте UMANI"
+    "prompt": "Разблокируйте UMANI",
+    "signOut": "Выйти из аккаунта"
   },
   "language": {
     "ru": "Русский",

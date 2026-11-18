@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { useTranslation } from 'react-i18next';
 import { AppState, StyleSheet, View } from 'react-native';
 
+import { signOut } from '@/features/auth/api/sign-in';
+import { useSession } from '@/features/auth/session-provider';
 import { Button } from '@/ui/button';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/theme/theme-provider';
@@ -39,16 +41,22 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const backgroundedAt = useRef<number | null>(null);
+  const { status } = useSession();
+  const signedOut = useRef(false);
+  useEffect(() => {
+    signedOut.current = status === 'signedOut';
+  }, [status]);
 
   useEffect(() => {
     SecureStore.getItemAsync(PREFERENCE_KEY)
       .then((value) => {
-        const on = value === 'on';
+        const on = value === 'on' && !signedOut.current; // a signed-out app has nothing to lock
         setEnabledState(on);
         setLocked(on); // lock on: stay locked until authenticated
       })
       .catch(() => {
         // Fail closed: if the preference can't be read, require authentication.
+        if (signedOut.current) return;
         setEnabledState(true);
         setLocked(true);
       })
@@ -67,6 +75,16 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
     return () => subscription.remove();
   }, [enabled]);
 
+  // Signed out (sign-out, account deletion, lost session): the lock protected that account only.
+  // Clear it so the next account starts unlocked and is offered the lock again.
+  useEffect(() => {
+    if (status !== 'signedOut') return;
+    void SecureStore.deleteItemAsync(PREFERENCE_KEY).finally(() => {
+      setEnabledState(false);
+      setLocked(false);
+    });
+  }, [status]);
+
   const value = useMemo<AppLockValue>(
     () => ({
       enabled,
@@ -84,7 +102,8 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
     if (await authenticate(t('lock.prompt'))) setLocked(false);
   };
 
-  const covered = locked || !active || !ready;
+  // Signed out there is nothing to protect, even before the preference is cleared.
+  const covered = (locked && status !== 'signedOut') || !active || !ready;
 
   return (
     <AppLockContext.Provider value={value}>
@@ -108,6 +127,8 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
                 {t('lock.title')}
               </Text>
               <Button label={t('lock.unlock')} onPress={() => void unlock()} />
+              {/* Escape hatch if Face ID / passcode were removed: signing out reveals no data. */}
+              <Button variant="ghost" label={t('lock.signOut')} onPress={() => void signOut()} />
             </View>
           )}
         </View>
