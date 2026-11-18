@@ -1,53 +1,111 @@
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { isLanguage, LANGUAGES, setLanguage, type Language } from '@/lib/i18n';
+import { ListRow } from '@/ui/list-row';
 import { SegmentedControl } from '@/ui/segmented-control';
+import { Surface } from '@/ui/surface';
 import { Text } from '@/ui/text';
 import { useTheme, type ThemePreference } from '@/ui/theme/theme-provider';
 import { SCREEN_PADDING, spacing } from '@/ui/tokens';
 
+import { deleteAccount, savePreferences } from '../api/account';
+
 const THEMES: readonly ThemePreference[] = ['system', 'light', 'dark'];
 const THEME_LABEL = { system: 'settings.themeSystem', light: 'settings.themeLight', dark: 'settings.themeDark' } as const;
 
-/**
- * Language and appearance. In-memory for now; persisted to the profile (locale, theme)
- * once sign-in exists (M2).
- */
-export function SettingsScreen() {
+export type SettingsScreenProps = Readonly<{
+  userId: string | null;
+  appLockEnabled: boolean;
+  onToggleAppLock: (enabled: boolean) => Promise<boolean>;
+  onSignOut: () => Promise<void>;
+}>;
+
+/** Language, appearance (saved to the profile), app lock and account actions. */
+export function SettingsScreen({ userId, appLockEnabled, onToggleAppLock, onSignOut }: SettingsScreenProps) {
   const { t, i18n } = useTranslation();
   const { colors, preference, setPreference } = useTheme();
   const current: Language = isLanguage(i18n.language) ? i18n.language : 'en';
+
+  function changeLanguage(language: Language) {
+    void setLanguage(language);
+    if (userId !== null) void savePreferences(userId, { locale: language });
+  }
+
+  function changeTheme(theme: ThemePreference) {
+    setPreference(theme);
+    if (userId !== null) void savePreferences(userId, { theme });
+  }
+
+  function confirmDelete() {
+    Alert.alert(t('settings.deleteTitle'), t('settings.deleteMessage'), [
+      { text: t('settings.cancel'), style: 'cancel' },
+      {
+        text: t('settings.deleteConfirm'),
+        style: 'destructive',
+        onPress: () => {
+          void deleteAccount().then((result) => {
+            if (!result.ok) Alert.alert(t('settings.deleteFailed'));
+          });
+        },
+      },
+    ]);
+  }
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={{ backgroundColor: colors.bgGrouped }}
       contentContainerStyle={styles.content}>
-      <View style={styles.section}>
-        <Text variant="footnote" color="textSecondary" accessibilityRole="header">
-          {t('settings.language')}
-        </Text>
+      <Section title={t('settings.language')}>
         <SegmentedControl
           accessibilityLabel={t('settings.language')}
           value={current}
-          onChange={(language) => void setLanguage(language)}
+          onChange={changeLanguage}
           options={LANGUAGES.map((language) => ({ value: language, label: t(`language.${language}`) }))}
         />
-      </View>
+      </Section>
 
-      <View style={styles.section}>
-        <Text variant="footnote" color="textSecondary" accessibilityRole="header">
-          {t('settings.appearance')}
-        </Text>
+      <Section title={t('settings.appearance')}>
         <SegmentedControl
           accessibilityLabel={t('settings.appearance')}
           value={preference}
-          onChange={setPreference}
+          onChange={changeTheme}
           options={THEMES.map((theme) => ({ value: theme, label: t(THEME_LABEL[theme]) }))}
         />
-      </View>
+      </Section>
+
+      <Section title={t('settings.security')}>
+        <Text variant="body">{t('settings.appLock')}</Text>
+        <SegmentedControl
+          accessibilityLabel={t('settings.appLock')}
+          value={appLockEnabled ? 'on' : 'off'}
+          onChange={(value) => void onToggleAppLock(value === 'on')}
+          options={[
+            { value: 'off', label: t('settings.off') },
+            { value: 'on', label: t('settings.on') },
+          ]}
+        />
+      </Section>
+
+      <Section title={t('settings.account')}>
+        <Surface padded={false}>
+          <ListRow title={t('settings.signOut')} onPress={() => void onSignOut()} />
+          <ListRow title={t('settings.deleteAccount')} onPress={confirmDelete} />
+        </Surface>
+      </Section>
     </ScrollView>
+  );
+}
+
+function Section({ title, children }: Readonly<{ title: string; children: React.ReactNode }>) {
+  return (
+    <View style={styles.section}>
+      <Text variant="footnote" color="textSecondary" accessibilityRole="header">
+        {title}
+      </Text>
+      {children}
+    </View>
   );
 }
 

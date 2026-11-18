@@ -25,8 +25,34 @@
     "emptyBody": "The financial advisor comes in a later milestone."
   },
   "auth": {
-    "title": "Sign in",
-    "emptyBody": "Sign in with Apple and Google comes in the next milestone."
+    "tagline": "Give every tenge a job",
+    "continueWithGoogle": "Continue with Google",
+    "errorFailed": "Sign-in failed. Please try again.",
+    "errorUnavailable": "Sign in with Apple is not available on this device."
+  },
+  "onboarding": {
+    "currencyTitle": "Main currency",
+    "currencyBody": "Your budget envelopes are counted in it. It can't be changed later.",
+    "methodTitle": "How to split your income",
+    "methodBody": "You can change the method later.",
+    "method_50_30_20": "50/30/20 — needs, wants, savings",
+    "method_80_20": "80/20 — spending and savings",
+    "method_90_10": "90/10 — spending and savings",
+    "method_70_20_10": "70/20/10 — living, savings, debt and giving",
+    "accountTitle": "First account",
+    "accountBody": "For example cash or a card. You can add more accounts later.",
+    "accountName": "Name",
+    "accountNameDefault": "Cash",
+    "openingBalance": "Current balance",
+    "invalidAmount": "Check the amount",
+    "lockTitle": "Protect UMANI?",
+    "lockBody": "The app will ask for Face ID or your passcode when it opens.",
+    "enableLock": "Turn on",
+    "skip": "Not now",
+    "next": "Next",
+    "back": "Back",
+    "saving": "Saving…",
+    "error": "Couldn't save. Please try again."
   },
   "settings": {
     "title": "Settings",
@@ -34,7 +60,24 @@
     "appearance": "Appearance",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "security": "Security",
+    "appLock": "Face ID lock",
+    "on": "On",
+    "off": "Off",
+    "account": "Account",
+    "signOut": "Sign out",
+    "deleteAccount": "Delete account",
+    "deleteTitle": "Delete your account?",
+    "deleteMessage": "All your data will be permanently deleted. This cannot be undone.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "deleteFailed": "Couldn't delete the account. Please try again later."
+  },
+  "lock": {
+    "title": "UMANI is locked",
+    "unlock": "Unlock",
+    "prompt": "Unlock UMANI"
   },
   "language": {
     "ru": "Русский",
