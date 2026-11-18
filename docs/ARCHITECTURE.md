@@ -107,7 +107,7 @@ UI event → feature hook (useRecordExpense)
 - **Read path**: tables and `security_invoker` views under RLS (`account_balances`, `envelope_balances`, `monthly_summary`).
 - **Edge Functions** (Deno, TypeScript):
   - `ai-advisor`: verifies the JWT, checks consent and rate limits, builds the aggregated context with a service-role read, calls OpenAI, stores the message, returns the answer.
-  - `delete-account`: verifies the JWT, revokes the Apple refresh token if present, calls `private.purge_user` (the only path allowed to delete ledger rows, see DATABASE §7), deletes the auth user, logs a deletion receipt with no PII.
+  - `delete-account`: verifies the JWT, revokes the Apple refresh token if present, calls `api.purge_account` with the service-role key (it runs `private.purge_user`, the only path allowed to delete ledger rows, and deletes the auth user; see DATABASE §7), logs a deletion receipt with no PII.
 - **Environments**: `local` (Supabase CLI + Docker, used in Milestone 1), `staging`, `production`. Separate projects and keys. Migrations only via `supabase/migrations` + CI. No dashboard edits in production.
 
 ## 5. Authentication

@@ -247,7 +247,7 @@ create policy "accounts_select_own" on public.accounts
 
 Hardening:
 - `revoke insert, update, delete on ledger_* , envelope_lines from authenticated, anon;`
-- A `before update or delete` trigger on ledger tables always rejects UPDATE. It rejects DELETE unless `current_setting('umani.purge_user', true) = old.user_id::text`. Only `private.purge_user(p_user_id)` sets that flag (`set_config(..., true)`, transaction-local). It's `security definer`, executable by `service_role` only, deletes the user's rows explicitly, and is called by the `delete-account` Edge Function right before it deletes the `auth.users` row. The flag is defence in depth, not the main control: `authenticated` has no DELETE grant on ledger tables at all, so setting the flag from a client session achieves nothing (a pgTAP test covers this).
+- A `before update or delete` trigger on ledger tables always rejects UPDATE. It rejects DELETE unless `current_setting('umani.purge_user', true) = old.user_id::text`. Only `private.purge_user(p_user_id)` sets that flag (`set_config(..., true)`, transaction-local). It deletes the user's ledger rows explicitly (envelope lines, ledger lines, entries), then the `auth.users` row, which cascades to everything else. The `delete-account` Edge Function reaches it through `api.purge_account(p_user_id)`: SECURITY DEFINER, executable by `service_role` only and also checking `auth.role() = 'service_role'`. Any other deletion path (Auth admin API, dashboard) fails on the guard by design. TRUNCATE is blocked by statement triggers. The flag is defence in depth, not the main control: `authenticated` has no DELETE grant on ledger tables at all, so setting the flag from a client session achieves nothing (a pgTAP test covers this).
 - `revoke execute on all functions in schema api from anon, public; grant execute … to authenticated;`
 - Security definer functions: `set search_path = ''`, fully qualified names, `auth.uid()` null check first.
 
@@ -268,11 +268,17 @@ All mutating RPCs take `p_idempotency_key uuid` and return the entry/row id. The
 | `record_transfer(p_from, p_to, p_amount_from, p_amount_to, p_envelope_id null, p_occurred_on, p_note, p_idempotency_key)` | Internal transfer (same or cross currency) | from ≠ to; same-currency ⇒ amounts equal; envelope used when crossing the budget boundary (R3) |
 | `reallocate(p_from_envelope, p_to_envelope, p_amount, p_idempotency_key)` | Move budget between envelopes | same budget |
 | `record_adjustment(p_account_id, p_target_balance, p_fx_rate, p_idempotency_key)` | Reconciliation | diff entry vs system:adjustment; ± Unallocated |
-| `record_revaluation(p_account_id, p_rate, p_idempotency_key)` | FX revaluation (R4) | foreign-currency budgeted account only |
+| `record_revaluation(p_account_id, p_rate, p_idempotency_key)` | FX revaluation (R4) | foreign-currency account; outside the budget only the book value changes (reports) |
+| `set_ai_consent(p_consent boolean)` | Grant (server time) or withdraw AI consent (PRD AI-5) | own profile |
+| `purge_account(p_user_id)` | Account deletion, called by the `delete-account` Edge Function | `service_role` only |
 | `reverse_entry(p_entry_id, p_idempotency_key)` | Undo/delete (R5) | not already reversed; not a reversal itself |
 | `amend_entry(p_entry_id, p_new jsonb, p_idempotency_key)` | Edit = reversal + new entry, atomically | as above + validation of the new entry |
 | `set_limit(...)` / `set_savings_goal(...)` / `create_category(...)` / `update_profile(...)` | Metadata | ownership |
 | `report_monthly(p_month)` / `report_yearly(p_year)` | Read aggregates (security invoker) | RLS |
+
+**Implemented in M1b:** `setup_budget`, `create_account`, `archive_account`, `record_income`, `record_expense`, `record_transfer`, `reallocate`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry` (income/expense/transfer), `set_ai_consent`, `purge_account`. Database-level guards added after review: R1 and "every entry has lines" are checked by deferred constraint triggers at commit; base-currency accounts must have base = amount on every line; budget base currency is immutable (R7); idempotency keys are serialised with advisory locks; at most 50 accounts per user; all trigger functions are SECURITY DEFINER because deferred triggers fire at commit under the caller's role. The rest (`change_budget_method`, `set_limit`, `set_savings_goal`, `create_category`, report RPCs) arrive with their milestones; until then the views in §6 cover reads. `update_profile` is not needed: the allowed profile columns are directly updatable under RLS.
+
+**Errors.** Expected failures raise SQLSTATE `P0001` with the message set to a stable code, the same strings the TS domain uses (`rate_required`, `unknown_envelope`, `idempotency_conflict`, `not_authenticated`, …); `detail` carries an index where useful (custom budget validation). The client maps codes to localised messages. Privilege errors stay `42501`.
 
 ## 9. Testing (pgTAP, `supabase/tests`)
 
