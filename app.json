@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "umani-expo",
+    "name": "UMANI",
     "slug": "umani-expo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,7 +8,10 @@
     "scheme": "umaniexpo",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.umani.app",
+      "appleTeamId": "K23ENZC9WH",
+      "usesAppleSignIn": true
     },
     "android": {
       "adaptiveIcon": {
@@ -31,6 +34,20 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      "expo-secure-store",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.617344693532-ltigh43a21t6jmh68br0utbaerd5sha3"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "UMANI uses Face ID to lock the app and protect your financial data."
         }
       ]
     ],
