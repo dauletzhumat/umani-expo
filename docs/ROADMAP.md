@@ -9,7 +9,7 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 | M0 | **Project plan** | CLAUDE.md, PRD, ARCHITECTURE, DATABASE, DESIGN_SYSTEM, ROADMAP | Docs reviewed and approved | done |
 | M1.0 | **Plan review fixes** | Accounting rules (DATABASE §5a), FX policy, reversal dating, idempotency conflicts, BigInt wire format, session storage, app lock, savings goals, doc consistency | Review findings closed in the docs | done |
 | M1a | **Finance engine & tooling** | see below | see below | done |
-| **M1b** | **Local database** | see below | see below | ~1 wk |
+| M1b | **Local database** | see below | see below | done (218 pgTAP checks; CLI 3.2.0 pinned as devDependency) |
 | **M1c** | **App shell** | see below | see below | 3–4 days |
 | M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | 2 wks |
 | M3 | Accounts & ledger | ACC-1…8 | Create/archive accounts, opening balances, in/out of budget, transfers incl. cross-currency with FX result, reconciliation, revaluation; balances from views; R1 holds in all pgTAP scenarios | 1.5 wks |
