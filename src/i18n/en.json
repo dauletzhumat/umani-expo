@@ -1,0 +1,59 @@
+{
+  "tabs": {
+    "home": "Home",
+    "budget": "Budget",
+    "stats": "Stats",
+    "advisor": "Advisor"
+  },
+  "home": {
+    "title": "Home",
+    "totalBalance": "Total balance",
+    "settings": "Settings",
+    "emptyTitle": "Your accounts will appear here",
+    "emptyBody": "Adding accounts and transactions comes in the next milestones."
+  },
+  "budget": {
+    "title": "Budget",
+    "emptyBody": "Envelopes and allocation methods come in the next milestones."
+  },
+  "stats": {
+    "title": "Stats",
+    "emptyBody": "Monthly and yearly reports come in the next milestones."
+  },
+  "advisor": {
+    "title": "Advisor",
+    "emptyBody": "The financial advisor comes in a later milestone."
+  },
+  "auth": {
+    "title": "Sign in",
+    "emptyBody": "Sign in with Apple and Google comes in the next milestone."
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "appearance": "Appearance",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
+  },
+  "language": {
+    "ru": "Русский",
+    "kk": "Қазақша",
+    "en": "English"
+  },
+  "amount": {
+    "minus": "minus"
+  },
+  "currency": {
+    "KZT_one": "tenge",
+    "KZT_other": "tenge",
+    "USD_one": "dollar",
+    "USD_other": "dollars",
+    "EUR_one": "euro",
+    "EUR_other": "euros",
+    "RUB_one": "ruble",
+    "RUB_other": "rubles",
+    "CNY_one": "yuan",
+    "CNY_other": "yuan"
+  }
+}
