@@ -1,0 +1,20 @@
+{
+  "description": "Integer division rounded half to even. Shared by Jest (src/domain/money/rounding.test.ts) and pgTAP (private.div_half_even).",
+  "divideHalfEven": [
+    { "numerator": "10", "denominator": "4", "expected": "2" },
+    { "numerator": "14", "denominator": "4", "expected": "4" },
+    { "numerator": "11", "denominator": "4", "expected": "3" },
+    { "numerator": "9", "denominator": "4", "expected": "2" },
+    { "numerator": "8", "denominator": "4", "expected": "2" },
+    { "numerator": "0", "denominator": "7", "expected": "0" },
+    { "numerator": "-10", "denominator": "4", "expected": "-2" },
+    { "numerator": "-14", "denominator": "4", "expected": "-4" },
+    { "numerator": "-11", "denominator": "4", "expected": "-3" },
+    { "numerator": "-9", "denominator": "4", "expected": "-2" },
+    { "numerator": "1", "denominator": "2", "expected": "0" },
+    { "numerator": "3", "denominator": "2", "expected": "2" },
+    { "numerator": "-1", "denominator": "2", "expected": "0" },
+    { "numerator": "-3", "denominator": "2", "expected": "-2" },
+    { "numerator": "1000000000000000000000000000000", "denominator": "3", "expected": "333333333333333333333333333333" }
+  ]
+}

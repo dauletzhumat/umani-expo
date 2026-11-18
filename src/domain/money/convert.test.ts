@@ -10,7 +10,7 @@ describe('parseRate', () => {
     expect(parseRate('0.0019802')).toEqual({ ok: true, value: { units: 19_802n, scale: 7 } });
   });
 
-  it.each(['', '0', '0.000', '-1', '1,5', '1.', '.5', 'abc', '1e3', ' 1', '1.0000000000001'])(
+  it.each(['', '0', '0.000', '-1', '1,5', '1.', '.5', 'abc', '1e3', ' 1', '1.0000000000001', '1000000000000'])(
     'rejects %p',
     (s) => {
       expect(parseRate(s)).toEqual({ ok: false, error: 'invalid_rate' });

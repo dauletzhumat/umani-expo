@@ -9,16 +9,14 @@ export type Rate = Readonly<{ units: bigint; scale: number }>;
 export type RateError = 'invalid_rate';
 export type ConvertError = RateError | 'out_of_range';
 
-/** Matches `numeric(24,12)` in the database. */
-const MAX_RATE_SCALE = 12;
-const RATE_PATTERN = /^([0-9]+)(?:\.([0-9]+))?$/;
+/** ≤ 12 integer digits and ≤ 12 decimals: fits `numeric(24,12)`; same rule as private.parse_rate. */
+const RATE_PATTERN = /^([0-9]{1,12})(?:\.([0-9]{1,12}))?$/;
 
-/** Parses a strict decimal string ("505", "505.25"), > 0, at most 12 decimals. Never a float. */
+/** Parses a strict decimal string ("505", "505.25"), > 0, at most 12 + 12 digits. Never a float. */
 export function parseRate(input: string): Result<Rate, RateError> {
   const match = RATE_PATTERN.exec(input);
   if (match === null) return err('invalid_rate');
   const fraction = match[2] ?? '';
-  if (fraction.length > MAX_RATE_SCALE) return err('invalid_rate');
   const units = BigInt((match[1] ?? '') + fraction);
   if (units === 0n) return err('invalid_rate');
   return ok(Object.freeze({ units, scale: fraction.length }));
