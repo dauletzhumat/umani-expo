@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { err, ok, type Result } from '@/domain/shared/result';
 import { supabase } from '@/lib/supabase/client';
 
+import { accountGoneFromAuthError } from '../model/delete-outcome';
+
 const ProfilePreferencesSchema = z.object({
   locale: z.enum(['ru', 'kk', 'en']),
   theme: z.enum(['system', 'light', 'dark']),
@@ -34,6 +36,11 @@ export async function deleteAccount(): Promise<Result<void, 'failed'>> {
     const refreshed = await supabase.auth.refreshSession();
     if (refreshed.error !== null) return err('failed');
     ({ error } = await invokeDelete());
+  }
+  if (error !== null && !(error instanceof FunctionsHttpError)) {
+    // No response (network/relay): the deletion may still have happened. Ask the server.
+    const { error: userError } = await supabase.auth.getUser();
+    if (accountGoneFromAuthError(userError)) error = null;
   }
   if (error !== null) return err('failed');
   await supabase.auth.signOut({ scope: 'local' });
