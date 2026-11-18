@@ -113,10 +113,14 @@ Each component has: typed props, light/dark support, Dynamic Type check, VoiceOv
 
 | Aspect | ru | kk | en |
 |---|---|---|---|
-| Group / decimal | `12 500,50` (narrow NBSP, comma) | `12 500,50` | `12,500.50` |
-| KZT | `12 500 ₸` | `12 500 ₸` | `₸12,500` → use `12,500 ₸` for consistency (decide in M1) |
-| Dates | `17 ноября 2026` | `2026 ж. 17 қараша` | `Nov 17, 2026` |
+| Group / decimal | `12 500,50` (narrow NBSP U+202F, comma) | `12 500,50` | `12,500.50` |
+| KZT, RUB | `12 500 ₸` (NBSP before the symbol) | `12 500 ₸` | `12,500 ₸` (decided in M1c: trailing, for consistency) |
+| USD, EUR, CNY | `12 500,50 $` | `12 500,50 $` | `$12,500.50` |
+| Negative / income | `−1 250 ₸` (U+2212) / `+1 250 ₸` | same | `−$12.50` / `+$12.50` |
+| Dates | `17 ноября 2026 г.` | `2026 ж. 17 қараша` | `November 17, 2026` |
 | Plurals | one/few/many/other | one/other | one/other |
+
+Implementation (M1c, from the Hermes spike on iOS/Expo Go SDK 58): money is formatted by `src/domain/money/format.ts` without `Intl` (Hermes prints `12 500,50 KZT` in ru and `KZT 12,500.50` in en); its output parses back with `parseMoney`. Dates may use `Intl.DateTimeFormat` (Hermes output above is correct for kk/ru/en). Hermes has **no `Intl.PluralRules`**; `src/lib/i18n/plural-rules.ts` installs a CLDR polyfill for ru/kk/en, tested against Node's ICU. `AmountText` reads amounts in full for VoiceOver ("минус 5 долларов").
 
 - Hide trailing `,00` for whole amounts in lists; show full precision in detail and input.
 - Russian and Kazakh strings run 20–40% longer than English. Design for the longest, no fixed-width labels.

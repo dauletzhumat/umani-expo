@@ -164,7 +164,7 @@ App ──(question, locale, JWT)──▶ ai-advisor fn
 
 ## 8. Cross-cutting
 
-- **i18n**: `i18next` + `react-i18next` + `expo-localization`; keys namespaced per feature; ICU plurals (ru and kk plural rules differ from en). `Intl.NumberFormat` for numbers. Verify Hermes Intl support for `kk` at the start of Milestone 1 and fall back to a custom formatter if needed.
+- **i18n**: `i18next` + `react-i18next` + `expo-localization`; keys namespaced per feature; ICU plurals (ru and kk plural rules differ from en). Verified on Hermes in M1c: money uses the custom formatter in `src/domain/money/format.ts` (Hermes currency output is wrong for ru/en), dates use `Intl.DateTimeFormat`, and a CLDR `Intl.PluralRules` polyfill (`src/lib/i18n/plural-rules.ts`) is installed because Hermes has none. Language: first supported device language, else Russian in KZ/RU/BY/KG, else English; switchable in Settings (persisted to the profile from M2). Translation keys are typed against `ru.json`, and a test keeps the three languages' keys and plural forms in sync.
 - **Theming**: tokens in `src/ui/tokens`; `useTheme()` returns semantic colours; system/light/dark override saved in the profile and locally.
 - **Error handling**: typed `AppError` (network, auth, validation, invariant, unknown) mapped to localised messages; Sentry (or similar) with PII scrubbing. Choose this in the hardening milestone.
 - **Observability**: privacy-safe product analytics (screen views, feature usage counts) behind consent. No cross-app tracking, so no ATT prompt is planned; if that changes, ATT is required before any tracking SDK runs.

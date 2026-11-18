@@ -69,12 +69,10 @@ jobs:
         run: npx supabase test db
 
   app:
-    # Non-blocking until Milestone 1c removes the Expo template code, which has
-    # known typecheck and lint errors. Make this blocking at the end of M1c.
-    name: Whole app (typecheck, lint) — non-blocking until M1c
+    # Blocking since M1c removed the Expo template: the whole project typechecks and lints clean.
+    name: Whole app (typecheck, lint)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
 
