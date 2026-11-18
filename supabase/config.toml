@@ -430,3 +430,11 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# UMANI: native Google Sign-In (signInWithIdToken). Client IDs are public: web first, then iOS.
+# Google's iOS SDK cannot pass a nonce, so nonce checks are skipped for Google only (Apple keeps them).
+[auth.external.google]
+enabled = true
+client_id = "617344693532-74c8hkdftpf70423726m408o20c1jjd6.apps.googleusercontent.com,617344693532-ltigh43a21t6jmh68br0utbaerd5sha3.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+skip_nonce_check = true

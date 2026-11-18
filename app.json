@@ -10,6 +10,7 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.umani.app",
+      "appleTeamId": "K23ENZC9WH",
       "usesAppleSignIn": true
     },
     "android": {
@@ -37,6 +38,12 @@
       ],
       "expo-secure-store",
       "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.617344693532-ltigh43a21t6jmh68br0utbaerd5sha3"
+        }
+      ],
       [
         "expo-local-authentication",
         {
