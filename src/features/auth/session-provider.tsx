@@ -16,11 +16,17 @@ export function SessionProvider({ children }: Readonly<{ children: ReactNode }>)
 
   useEffect(() => {
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setSession(data.session);
-      setStatus(data.session ? 'signedIn' : 'signedOut');
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        setStatus(data.session ? 'signedIn' : 'signedOut');
+      })
+      .catch(() => {
+        // Fail closed: unreadable storage means "signed out", never an endless splash.
+        if (active) setStatus('signedOut');
+      });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next);
       setStatus(next ? 'signedIn' : 'signedOut');

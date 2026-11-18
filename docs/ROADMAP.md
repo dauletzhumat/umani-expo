@@ -11,7 +11,18 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 | M1a | **Finance engine & tooling** | see below | see below | done |
 | M1b | **Local database** | see below | see below | done (218 pgTAP checks; CLI 3.2.0 pinned as devDependency) |
 | M1c | **App shell** | see below | see below | done (verified on the iOS simulator; CI app job blocking) |
-| M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | 2 wks |
+| M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | in progress: code done and verified locally (server e2e); pending manual Apple sign-in, Google client IDs, dev build, and the pre-staging checklist below |
+
+**M2 pre-staging checklist (security review):**
+1. Apple provider `client_id` = `com.umani.app` only; `host.exp.Exponent` stays in the local config (any Expo Go app can mint that audience).
+2. Disable the email provider in hosted projects (no UI uses it; open sign-up allows pre-registering someone's email).
+3. Google provider: only the client IDs in use; `skip_nonce_check` on Google only (Apple keeps nonce checks).
+4. Revoke the Sign in with Apple token on account deletion (guideline 5.1.1(v)); Apple key as an Edge Function secret; fail closed.
+5. Require recent re-authentication (Face ID / provider) before account deletion.
+6. Session storage hardening: serialise reads/writes, write ciphertext before swapping keys, delete only on authentication-tag failure (not on Keychain errors).
+7. App lock: escape hatch when biometrics/passcode are removed (sign out + clear preference); clear the preference on account deletion; native app-switcher snapshot cover verified on a device.
+8. Recovery UI when the active-budget query fails (today the splash fails closed); re-check the session if a delete response is lost.
+9. Hosted project: review `jwt_expiry`, `site_url`, redirect allowlist; secrets only via `env()`.
 | M3 | Accounts & ledger | ACC-1…8 | Create/archive accounts, opening balances, in/out of budget, transfers incl. cross-currency with FX result, reconciliation, revaluation; balances from views; R1 holds in all pgTAP scenarios | 1.5 wks |
 | M4 | Budget methods & income | BUD-1…6, BUD-8, INC-1…5 | All presets + custom editor; auto/manual allocation exact; method switch with reassignment; reversal-based edit | 1.5 wks |
 | M5 | Expenses, categories & limits | EXP-1…5 | Expense entry < 5 taps; categories with default envelopes; limits with progress; transaction history with undo | 1.5 wks |

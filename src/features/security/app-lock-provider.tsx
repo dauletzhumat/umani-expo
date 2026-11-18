@@ -34,16 +34,25 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
   const { t } = useTranslation();
   const { colors } = useTheme();
   const [enabled, setEnabledState] = useState(false);
-  const [locked, setLocked] = useState(false);
+  // Start covered until the preference is known (no unlocked frames on cold start).
+  const [locked, setLocked] = useState(true);
+  const [ready, setReady] = useState(false);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const backgroundedAt = useRef<number | null>(null);
 
   useEffect(() => {
-    void SecureStore.getItemAsync(PREFERENCE_KEY).then((value) => {
-      const on = value === 'on';
-      setEnabledState(on);
-      setLocked(on); // cold start with the lock on: locked until authenticated
-    });
+    SecureStore.getItemAsync(PREFERENCE_KEY)
+      .then((value) => {
+        const on = value === 'on';
+        setEnabledState(on);
+        setLocked(on); // lock on: stay locked until authenticated
+      })
+      .catch(() => {
+        // Fail closed: if the preference can't be read, require authentication.
+        setEnabledState(true);
+        setLocked(true);
+      })
+      .finally(() => setReady(true));
   }, []);
 
   useEffect(() => {
@@ -75,15 +84,25 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
     if (await authenticate(t('lock.prompt'))) setLocked(false);
   };
 
+  const covered = locked || !active || !ready;
+
   return (
     <AppLockContext.Provider value={value}>
-      {children}
-      {(locked || !active) && (
-        <View style={[StyleSheet.absoluteFill, styles.cover, { backgroundColor: colors.bgCanvas }]}>
+      {/* While covered, hide the content from VoiceOver as well as from sight. */}
+      <View
+        style={styles.flex}
+        accessibilityElementsHidden={covered}
+        importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'}>
+        {children}
+      </View>
+      {covered && (
+        <View
+          accessibilityViewIsModal
+          style={[StyleSheet.absoluteFill, styles.cover, { backgroundColor: colors.bgCanvas }]}>
           <Text variant="title1" accessibilityRole="header">
             UMANI
           </Text>
-          {locked && active && (
+          {ready && locked && active && (
             <View style={styles.lock}>
               <Text variant="callout" color="textSecondary">
                 {t('lock.title')}
@@ -104,6 +123,7 @@ export function useAppLock(): AppLockValue {
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   cover: { alignItems: 'center', justifyContent: 'center', padding: SCREEN_PADDING, gap: spacing.xxl },
   lock: { alignSelf: 'stretch', gap: spacing.md, alignItems: 'center' },
 });
