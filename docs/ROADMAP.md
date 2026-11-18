@@ -11,7 +11,7 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 | M1a | **Finance engine & tooling** | see below | see below | done |
 | M1b | **Local database** | see below | see below | done (218 pgTAP checks; CLI 3.2.0 pinned as devDependency) |
 | M1c | **App shell** | see below | see below | done (verified on the iOS simulator; CI app job blocking) |
-| M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | in progress: code done and verified locally (server e2e); pending manual Apple sign-in, Google client IDs, dev build, and the pre-staging checklist below |
+| M2 | Auth, onboarding & app lock | AUTH-1…6, UX-3 | Apple + Google sign-in on a dev build; encrypted session storage; profile trigger; onboarding writes the budget; Face ID lock; account deletion (`purge_user`) works end to end on staging | in progress: verified locally on the iOS simulator — Apple sign-in (Expo Go), Google sign-in on the `com.umani.app` dev build, onboarding writes the budget, app lock offer, account deletion from Settings (rows purged); remaining: staging project and the pre-staging checklist below |
 
 **M2 pre-staging checklist (security review):**
 1. Apple provider `client_id` = `com.umani.app` only; `host.exp.Exponent` stays in the local config (any Expo Go app can mint that audience).
