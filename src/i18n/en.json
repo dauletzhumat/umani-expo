@@ -78,7 +78,8 @@
     "title": "UMANI is locked",
     "unlock": "Unlock",
     "prompt": "Unlock UMANI",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "confirmDelete": "Confirm account deletion"
   },
   "language": {
     "ru": "Русский",

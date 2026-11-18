@@ -5,8 +5,14 @@ import { SettingsScreen } from '@/features/settings/components/settings-screen';
 
 export default function SettingsRoute() {
   const { userId } = useSession();
-  const { enabled, setEnabled } = useAppLock();
+  const { enabled, setEnabled, confirmOwner } = useAppLock();
   return (
-    <SettingsScreen userId={userId} appLockEnabled={enabled} onToggleAppLock={setEnabled} onSignOut={signOut} />
+    <SettingsScreen
+      userId={userId}
+      appLockEnabled={enabled}
+      onToggleAppLock={setEnabled}
+      onSignOut={signOut}
+      confirmOwner={confirmOwner}
+    />
   );
 }

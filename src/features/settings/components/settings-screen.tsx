@@ -19,10 +19,12 @@ export type SettingsScreenProps = Readonly<{
   appLockEnabled: boolean;
   onToggleAppLock: (enabled: boolean) => Promise<boolean>;
   onSignOut: () => Promise<void>;
+  /** Face ID / passcode check before deleting the account (false = cancelled or failed). */
+  confirmOwner: (prompt: string) => Promise<boolean>;
 }>;
 
 /** Language, appearance (saved to the profile), app lock and account actions. */
-export function SettingsScreen({ userId, appLockEnabled, onToggleAppLock, onSignOut }: SettingsScreenProps) {
+export function SettingsScreen({ userId, appLockEnabled, onToggleAppLock, onSignOut, confirmOwner }: SettingsScreenProps) {
   const { t, i18n } = useTranslation();
   const { colors, preference, setPreference } = useTheme();
   const current: Language = isLanguage(i18n.language) ? i18n.language : 'en';
@@ -37,17 +39,19 @@ export function SettingsScreen({ userId, appLockEnabled, onToggleAppLock, onSign
     if (userId !== null) void savePreferences(userId, { theme });
   }
 
+  async function removeAccount() {
+    if (!(await confirmOwner(t('lock.confirmDelete')))) return;
+    const result = await deleteAccount();
+    if (!result.ok) Alert.alert(t('settings.deleteFailed'));
+  }
+
   function confirmDelete() {
     Alert.alert(t('settings.deleteTitle'), t('settings.deleteMessage'), [
       { text: t('settings.cancel'), style: 'cancel' },
       {
         text: t('settings.deleteConfirm'),
         style: 'destructive',
-        onPress: () => {
-          void deleteAccount().then((result) => {
-            if (!result.ok) Alert.alert(t('settings.deleteFailed'));
-          });
-        },
+        onPress: () => void removeAccount(),
       },
     ]);
   }

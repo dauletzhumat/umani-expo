@@ -19,6 +19,12 @@ type AppLockValue = Readonly<{
   enabled: boolean;
   /** Turning the lock on asks for Face ID / passcode first, so the user can't lock themselves out. */
   setEnabled: (enabled: boolean) => Promise<boolean>;
+  /**
+   * Re-authenticates the device owner (Face ID / passcode) before a destructive action. A device
+   * with no passcode at all cannot re-authenticate, so it returns true and the confirmation dialog
+   * is the only gate there.
+   */
+  confirmOwner: (prompt: string) => Promise<boolean>;
 }>;
 
 const AppLockContext = createContext<AppLockValue | null>(null);
@@ -93,6 +99,11 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
         await SecureStore.setItemAsync(PREFERENCE_KEY, next ? 'on' : 'off');
         setEnabledState(next);
         return true;
+      },
+      confirmOwner: async (prompt) => {
+        const level = await LocalAuthentication.getEnrolledLevelAsync();
+        if (level === LocalAuthentication.SecurityLevel.NONE) return true;
+        return authenticate(prompt);
       },
     }),
     [enabled, t],
