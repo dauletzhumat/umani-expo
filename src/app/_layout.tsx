@@ -34,17 +34,21 @@ function RootNavigator() {
     if (status === 'signedOut') queryClient.clear();
   }, [status, queryClient]);
 
-  // Apply the language and appearance saved on the profile, once per signed-in user.
+  // Apply the language and appearance saved on the profile, once per signed-in user. A failed
+  // load (offline) is retried the next time the app becomes reachable (e.g. after recovery).
   const appliedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (userId === null || appliedFor.current === userId) return;
+    if (userId === null || gate !== 'app' || appliedFor.current === userId) return;
     appliedFor.current = userId;
     void loadPreferences(userId).then((preferences) => {
-      if (preferences === null) return;
+      if (preferences === null) {
+        appliedFor.current = null;
+        return;
+      }
       if (isLanguage(preferences.locale)) void setLanguage(preferences.locale);
       setPreference(preferences.theme);
     });
-  }, [userId, setPreference]);
+  }, [userId, gate, setPreference]);
 
   useEffect(() => {
     if (gate !== 'splash') void SplashScreen.hideAsync();
