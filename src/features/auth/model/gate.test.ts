@@ -4,14 +4,16 @@ import { gateFor } from './gate';
 
 describe('gateFor (which part of the app is reachable)', () => {
   it.each([
-    ['loading', undefined, 'splash'],
-    ['loading', true, 'splash'],
-    ['signedOut', undefined, 'signIn'],
-    ['signedOut', true, 'signIn'],
-    ['signedIn', undefined, 'splash'], // budget still loading: keep the splash, no flash of onboarding
-    ['signedIn', false, 'onboarding'],
-    ['signedIn', true, 'app'],
-  ] as const)('%s + hasBudget=%p → %s', (status, hasBudget, expected) => {
-    expect(gateFor(status, hasBudget)).toBe(expected);
+    ['loading', 'loading', 'splash'],
+    ['loading', 'exists', 'splash'],
+    ['signedOut', 'loading', 'signIn'],
+    ['signedOut', 'failed', 'signIn'],
+    ['signedOut', 'exists', 'signIn'],
+    ['signedIn', 'loading', 'splash'], // budget still loading: keep the splash, no flash of onboarding
+    ['signedIn', 'failed', 'recovery'], // never onboarding (a second budget) or an endless splash
+    ['signedIn', 'none', 'onboarding'],
+    ['signedIn', 'exists', 'app'],
+  ] as const)('%s + budget=%s → %s', (status, budget, expected) => {
+    expect(gateFor(status, budget)).toBe(expected);
   });
 });

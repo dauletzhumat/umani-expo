@@ -100,5 +100,11 @@
     "RUB_other": "rubles",
     "CNY_one": "yuan",
     "CNY_other": "yuan"
+  },
+  "recovery": {
+    "title": "Couldn't load your data",
+    "body": "Check your internet connection and try again.",
+    "retry": "Try again",
+    "signOut": "Sign out"
   }
 }

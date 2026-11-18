@@ -7,7 +7,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef, useState } from 'react';
 import { I18nextProvider, useTranslation } from 'react-i18next';
 
-import { gateFor } from '@/features/auth/model/gate';
+import { signOut } from '@/features/auth/api/sign-in';
+import { RecoveryScreen } from '@/features/auth/components/recovery-screen';
+import { gateFor, type BudgetState } from '@/features/auth/model/gate';
 import { SessionProvider, useSession } from '@/features/auth/session-provider';
 import { useActiveBudget } from '@/features/budget/api/use-active-budget';
 import { AppLockProvider } from '@/features/security/app-lock-provider';
@@ -19,12 +21,13 @@ void SplashScreen.preventAutoHideAsync();
 function RootNavigator() {
   const { t } = useTranslation();
   const { scheme, colors, setPreference } = useTheme();
-  const { status, userId } = useSession();
+  const { status, userId, revalidate } = useSession();
   const queryClient = useQueryClient();
   const budget = useActiveBudget(userId);
 
-  const hasBudget = status === 'signedIn' && budget.data !== undefined ? budget.data !== null : undefined;
-  const gate = gateFor(status, hasBudget);
+  const budgetState: BudgetState =
+    budget.data !== undefined ? (budget.data === null ? 'none' : 'exists') : budget.isError ? 'failed' : 'loading';
+  const gate = gateFor(status, budgetState);
 
   // Signed out: drop every cached query so nothing of the previous user stays in memory.
   useEffect(() => {
@@ -48,6 +51,17 @@ function RootNavigator() {
   }, [gate]);
 
   if (gate === 'splash') return null;
+  if (gate === 'recovery') {
+    return (
+      <RecoveryScreen
+        onRetry={async () => {
+          await revalidate(); // a dead session signs out instead of retrying forever
+          await budget.refetch();
+        }}
+        onSignOut={signOut}
+      />
+    );
+  }
 
   const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
