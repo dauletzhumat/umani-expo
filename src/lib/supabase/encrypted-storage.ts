@@ -62,7 +62,11 @@ export class EncryptedStorage {
     if (stored === null) return null;
     const { keyName, sealed } = parseStored(key, stored);
     const encodedKey = await this.deps.keyStore.get(keyName);
-    if (encodedKey === null) return null;
+    if (encodedKey === null) {
+      // The key is gone (e.g. the Keychain was reset): the ciphertext can never be read again.
+      await this.remove(key);
+      return null;
+    }
     try {
       return utf8Decode(await this.deps.cipher.decrypt(sealed, encodedKey));
     } catch {

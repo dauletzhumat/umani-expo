@@ -16,12 +16,12 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 **M2 pre-staging checklist (security review):**
 1. Apple provider `client_id` = `com.umani.app` only; `host.exp.Exponent` stays in the local config (any Expo Go app can mint that audience).
 2. Disable the email provider in hosted projects (no UI uses it; open sign-up allows pre-registering someone's email).
-3. Google provider: only the client IDs in use; `skip_nonce_check` on Google only (Apple keeps nonce checks).
+3. Google provider: only the client IDs in use. `skip_nonce_check` is on for Google (Apple keeps nonce checks): a leaked Google ID token for our audiences can mint a session. Before staging, check whether the Google Sign-In library can pass a nonce and drop the skip; otherwise record the accepted risk in ARCHITECTURE.
 4. Revoke the Sign in with Apple token on account deletion (guideline 5.1.1(v)); Apple key as an Edge Function secret; fail closed.
-5. Require recent re-authentication (Face ID / provider) before account deletion.
-6. Session storage hardening: ~~serialise reads/writes~~ and ~~delete only on authentication failure, not on Keychain errors~~ (done: overlapping token refreshes wiped a real session in the simulator). Still open: crash-safe writes (a crash between the Keychain and AsyncStorage writes still loses the session), and signing the user out in the UI when the stored session is gone (today the app keeps a dead in-memory token and every request gets a 401).
-7. App lock: escape hatch when biometrics/passcode are removed (sign out + clear preference); clear the preference on account deletion; native app-switcher snapshot cover verified on a device.
-8. Recovery UI when the active-budget query fails (today the splash fails closed); re-check the session if a delete response is lost.
+5. ~~Re-authenticate (Face ID / passcode) before account deletion~~ (done; a device with no passcode keeps only the confirmation dialog). Still open: the `delete-account` function should also require a recently issued session (`iat` within a few minutes), so a stolen token alone can't delete the account.
+6. ~~Session storage hardening~~ (done: serialised operations, crash-safe writes with alternating Keychain slots, delete only on authentication failure or a missing key; the UI signs out when the stored session is gone).
+7. ~~App lock: no lock-out when Face ID and the passcode are removed (unlock turns the lock off); cleared only by sign-out from the unlocked app or account deletion~~ (done; the lock screen deliberately has no sign-out, so nobody holding the phone can reset the lock by re-signing in). Still open: native app-switcher snapshot cover verified on a device.
+8. ~~Recovery screen when the active-budget query fails; resolve a lost delete response~~ (done: only `user_not_found` counts as deleted).
 9. Hosted project: review `jwt_expiry`, `site_url`, redirect allowlist; secrets only via `env()`.
 | M3 | Accounts & ledger | ACC-1…8 | Create/archive accounts, opening balances, in/out of budget, transfers incl. cross-currency with FX result, reconciliation, revaluation; balances from views; R1 holds in all pgTAP scenarios | 1.5 wks |
 | M4 | Budget methods & income | BUD-1…6, BUD-8, INC-1…5 | All presets + custom editor; auto/manual allocation exact; method switch with reassignment; reversal-based edit | 1.5 wks |

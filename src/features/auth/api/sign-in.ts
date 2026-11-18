@@ -86,5 +86,7 @@ export async function signInWithGoogle(): Promise<Result<void, SignInError>> {
 }
 
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut();
+  // Offline or server error: still end the session on this device.
+  if (error !== null) await supabase.auth.signOut({ scope: 'local' });
 }

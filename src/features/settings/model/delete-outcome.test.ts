@@ -5,8 +5,8 @@ import { accountGoneFromAuthError } from './delete-outcome';
 describe('accountGoneFromAuthError (was a deletion with a lost response applied?)', () => {
   it.each([
     [{ code: 'user_not_found', status: 403 }, true],
-    [{ code: 'session_not_found', status: 403 }, true],
-    [{ code: 'refresh_token_not_found', status: 400 }, true],
+    [{ code: 'session_not_found', status: 403 }, false], // dead session, account may still exist
+    [{ code: 'refresh_token_not_found', status: 400 }, false],
     [{ code: undefined, status: 0 }, false], // network failure: unknown, keep the account state
     [{ code: 'unexpected_failure', status: 500 }, false],
     [{ code: 'bad_jwt', status: 403 }, false],

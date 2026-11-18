@@ -4,8 +4,6 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { useTranslation } from 'react-i18next';
 import { AppState, StyleSheet, View } from 'react-native';
 
-import { signOut } from '@/features/auth/api/sign-in';
-import { useSession } from '@/features/auth/session-provider';
 import { Button } from '@/ui/button';
 import { Text } from '@/ui/text';
 import { useTheme } from '@/ui/theme/theme-provider';
@@ -25,6 +23,11 @@ type AppLockValue = Readonly<{
    * is the only gate there.
    */
   confirmOwner: (prompt: string) => Promise<boolean>;
+  /**
+   * Turns the lock off. Only for flows where the owner is already authenticated: signing out from
+   * the unlocked app, or after the account was deleted. Nothing on the lock screen may call it.
+   */
+  clear: () => Promise<void>;
 }>;
 
 const AppLockContext = createContext<AppLockValue | null>(null);
@@ -47,22 +50,16 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const backgroundedAt = useRef<number | null>(null);
-  const { status } = useSession();
-  const signedOut = useRef(false);
-  useEffect(() => {
-    signedOut.current = status === 'signedOut';
-  }, [status]);
 
   useEffect(() => {
     SecureStore.getItemAsync(PREFERENCE_KEY)
       .then((value) => {
-        const on = value === 'on' && !signedOut.current; // a signed-out app has nothing to lock
+        const on = value === 'on';
         setEnabledState(on);
         setLocked(on); // lock on: stay locked until authenticated
       })
       .catch(() => {
         // Fail closed: if the preference can't be read, require authentication.
-        if (signedOut.current) return;
         setEnabledState(true);
         setLocked(true);
       })
@@ -81,16 +78,6 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
     return () => subscription.remove();
   }, [enabled]);
 
-  // Signed out (sign-out, account deletion, lost session): the lock protected that account only.
-  // Clear it so the next account starts unlocked and is offered the lock again.
-  useEffect(() => {
-    if (status !== 'signedOut') return;
-    void SecureStore.deleteItemAsync(PREFERENCE_KEY).finally(() => {
-      setEnabledState(false);
-      setLocked(false);
-    });
-  }, [status]);
-
   const value = useMemo<AppLockValue>(
     () => ({
       enabled,
@@ -105,16 +92,28 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
         if (level === LocalAuthentication.SecurityLevel.NONE) return true;
         return authenticate(prompt);
       },
+      clear: async () => {
+        await SecureStore.deleteItemAsync(PREFERENCE_KEY);
+        setEnabledState(false);
+        setLocked(false);
+      },
     }),
     [enabled, t],
   );
 
   const unlock = async () => {
+    // Face ID and the passcode were removed from the device (which itself needs the passcode):
+    // the lock can no longer work, so turn it off instead of locking the owner out forever.
+    if ((await LocalAuthentication.getEnrolledLevelAsync()) === LocalAuthentication.SecurityLevel.NONE) {
+      await SecureStore.setItemAsync(PREFERENCE_KEY, 'off');
+      setEnabledState(false);
+      setLocked(false);
+      return;
+    }
     if (await authenticate(t('lock.prompt'))) setLocked(false);
   };
 
-  // Signed out there is nothing to protect, even before the preference is cleared.
-  const covered = (locked && status !== 'signedOut') || !active || !ready;
+  const covered = locked || !active || !ready;
 
   return (
     <AppLockContext.Provider value={value}>
@@ -138,8 +137,6 @@ export function AppLockProvider({ children }: Readonly<{ children: ReactNode }>)
                 {t('lock.title')}
               </Text>
               <Button label={t('lock.unlock')} onPress={() => void unlock()} />
-              {/* Escape hatch if Face ID / passcode were removed: signing out reveals no data. */}
-              <Button variant="ghost" label={t('lock.signOut')} onPress={() => void signOut()} />
             </View>
           )}
         </View>

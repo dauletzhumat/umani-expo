@@ -33,6 +33,7 @@ async function renderScreen(confirmOwner: (prompt: string) => Promise<boolean>) 
           onToggleAppLock={async () => true}
           onSignOut={async () => undefined}
           confirmOwner={confirmOwner}
+          onAccountDeleted={async () => undefined}
         />
       </ThemeProvider>
     </I18nextProvider>,
