@@ -16,6 +16,7 @@ function makeDeps(options: FakeOptions = {}) {
   const valueDelay = options.valueDelay ?? (() => 0);
   let counter = 0;
   let keyReadsFail = false;
+  let valueWriteFails = false;
   const keyStore: KeyStore = {
     get: async (k) => {
       if (keyReadsFail) throw new Error('keychain unavailable');
@@ -34,6 +35,10 @@ function makeDeps(options: FakeOptions = {}) {
     getItem: async (k) => values.get(k) ?? null,
     setItem: async (k, v) => {
       await sleep(valueDelay());
+      if (valueWriteFails) {
+        valueWriteFails = false;
+        throw new Error('crash');
+      }
       values.set(k, v);
     },
     removeItem: async (k) => {
@@ -60,6 +65,9 @@ function makeDeps(options: FakeOptions = {}) {
     failKeyReads: () => {
       keyReadsFail = true;
     },
+    failNextValueWrite: () => {
+      valueWriteFails = true;
+    },
     storage: new EncryptedStorage({ keyStore, valueStore, cipher }),
   };
 }
@@ -76,16 +84,16 @@ describe('EncryptedStorage (supabase-js auth storage)', () => {
     const { storage, keys, values } = makeDeps();
     await storage.setItem('sb-auth-token', 'secret-session');
     expect([...values.values()].join()).not.toContain('secret-session');
-    expect(keys.has('sb-auth-token')).toBe(true);
+    expect([...keys.keys()].some((k) => k.startsWith('sb-auth-token'))).toBe(true);
     expect(values.has('sb-auth-token')).toBe(true);
   });
 
   it('uses a fresh key for every write', async () => {
     const { storage, keys } = makeDeps();
     await storage.setItem('k', 'one');
-    const first = keys.get('k');
+    const first = [...keys.values()];
     await storage.setItem('k', 'two');
-    expect(keys.get('k')).not.toBe(first);
+    expect([...keys.values()].some((key) => !first.includes(key))).toBe(true);
     expect(await storage.getItem('k')).toBe('two');
   });
 
@@ -93,7 +101,7 @@ describe('EncryptedStorage (supabase-js auth storage)', () => {
     const { storage, keys, values } = makeDeps();
     expect(await storage.getItem('missing')).toBeNull();
     await storage.setItem('k', 'v');
-    keys.delete('k');
+    for (const name of [...keys.keys()]) keys.delete(name);
     expect(await storage.getItem('k')).toBeNull();
     await storage.setItem('k2', 'v');
     values.delete('k2');
@@ -103,9 +111,10 @@ describe('EncryptedStorage (supabase-js auth storage)', () => {
   it('drops tampered or undecryptable data instead of throwing (user signs in again)', async () => {
     const { storage, keys, values } = makeDeps();
     await storage.setItem('k', 'v');
-    values.set('k', 'forged|66.67');
+    const stored = values.get('k') ?? '';
+    values.set('k', stored.replace(/[^:]*$/, 'forged|66.67'));
     expect(await storage.getItem('k')).toBeNull();
-    expect(keys.has('k')).toBe(false);
+    expect(keys.size).toBe(0);
     expect(values.has('k')).toBe(false);
   });
 
@@ -143,14 +152,36 @@ describe('EncryptedStorage (supabase-js auth storage)', () => {
     await storage.setItem('k', 'v');
     failKeyReads();
     await expect(storage.getItem('k')).rejects.toThrow('keychain unavailable');
-    expect(keys.has('k') && values.has('k')).toBe(true);
+    expect(keys.size > 0 && values.has('k')).toBe(true);
+  });
+
+  it('survives a crash between the Keychain and AsyncStorage writes (old session stays readable)', async () => {
+    const { storage, failNextValueWrite } = makeDeps();
+    await storage.setItem('k', 'old');
+    failNextValueWrite();
+    await expect(storage.setItem('k', 'new')).rejects.toThrow('crash');
+    expect(await storage.getItem('k')).toBe('old');
+    await storage.setItem('k', 'newer');
+    expect(await storage.getItem('k')).toBe('newer');
+  });
+
+  it('reads sessions written by the previous single-key format and migrates them on the next write', async () => {
+    const { storage, keys, values } = makeDeps();
+    keys.set('k', 'key-legacy');
+    values.set('k', `key-legacy|${Array.from(new TextEncoder().encode('legacy'), (b) => b + 1).join('.')}`);
+    expect(await storage.getItem('k')).toBe('legacy');
+    await storage.setItem('k', 'fresh');
+    expect(keys.has('k')).toBe(false);
+    expect(await storage.getItem('k')).toBe('fresh');
   });
 
   it('removes both halves', async () => {
     const { storage, keys, values } = makeDeps();
     await storage.setItem('k', 'v');
+    await storage.setItem('k', 'v2');
     await storage.removeItem('k');
-    expect(keys.has('k') || values.has('k')).toBe(false);
+    expect(keys.size).toBe(0);
+    expect(values.has('k')).toBe(false);
   });
 });
 
