@@ -34,6 +34,7 @@
     "fast-check": "^4.10.2",
     "jest": "~30.5.2",
     "jest-expo": "~58.0.15",
+    "supabase": "3.2.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -43,12 +44,16 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "lint:domain": "expo lint src/domain scripts/check-domain-boundary.js",
+    "lint:domain": "expo lint src/domain scripts/check-domain-boundary.js scripts/gen-pgtap-fixtures.js",
     "typecheck": "tsc --noEmit",
     "typecheck:domain": "tsc --noEmit -p tsconfig.domain.json",
     "test": "node scripts/check-domain-boundary.js && jest",
     "test:watch": "jest --watch",
-    "test:coverage": "node scripts/check-domain-boundary.js && jest --coverage"
+    "test:coverage": "node scripts/check-domain-boundary.js && jest --coverage",
+    "db:fixtures": "node scripts/gen-pgtap-fixtures.js",
+    "db:reset": "supabase db reset",
+    "db:test": "node scripts/gen-pgtap-fixtures.js && supabase test db",
+    "db:types": "supabase gen types typescript --schema public,api > src/lib/supabase/database.types.ts"
   },
   "jest": {
     "preset": "jest-expo",
