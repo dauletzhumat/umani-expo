@@ -29,26 +29,53 @@ export type Cipher = Readonly<{
 export type EncryptedStorageDeps = Readonly<{ keyStore: KeyStore; valueStore: ValueStore; cipher: Cipher }>;
 
 export class EncryptedStorage {
+  /**
+   * Every operation runs after the previous one finishes. A write touches two stores (Keychain,
+   * then AsyncStorage), so overlapping writes (e.g. two token refreshes) could otherwise leave one
+   * write's key next to another's ciphertext, and the next read would discard the session.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
+
   constructor(private readonly deps: EncryptedStorageDeps) {}
 
-  async getItem(key: string): Promise<string | null> {
+  getItem(key: string): Promise<string | null> {
+    return this.serialised(() => this.read(key));
+  }
+
+  setItem(key: string, value: string): Promise<void> {
+    return this.serialised(() => this.write(key, value));
+  }
+
+  removeItem(key: string): Promise<void> {
+    return this.serialised(() => this.remove(key));
+  }
+
+  private serialised<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task, task);
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async read(key: string): Promise<string | null> {
+    // Store read errors (e.g. Keychain unavailable) propagate: the data may still be valid.
     const [encodedKey, sealed] = await Promise.all([this.deps.keyStore.get(key), this.deps.valueStore.getItem(key)]);
     if (encodedKey === null || sealed === null) return null;
     try {
       return utf8Decode(await this.deps.cipher.decrypt(sealed, encodedKey));
     } catch {
-      await this.removeItem(key);
+      // Authentication failed: tampered data or a half-finished write. Discard it.
+      await this.remove(key);
       return null;
     }
   }
 
-  async setItem(key: string, value: string): Promise<void> {
+  private async write(key: string, value: string): Promise<void> {
     const { key: encodedKey, sealed } = await this.deps.cipher.encrypt(utf8Encode(value));
     await this.deps.keyStore.set(key, encodedKey);
     await this.deps.valueStore.setItem(key, sealed);
   }
 
-  async removeItem(key: string): Promise<void> {
+  private async remove(key: string): Promise<void> {
     await Promise.all([this.deps.valueStore.removeItem(key), this.deps.keyStore.remove(key)]);
   }
 }

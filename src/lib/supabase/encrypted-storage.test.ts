@@ -5,19 +5,41 @@ import { utf8Decode, utf8Encode } from '../encoding/utf8';
 import { EncryptedStorage, type Cipher, type KeyStore, type ValueStore } from './encrypted-storage';
 
 /** In-memory fakes for the two stores and a reversible, key-checking fake cipher. */
-function makeDeps() {
+type FakeOptions = Readonly<{ keyDelay?: () => number; valueDelay?: () => number }>;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function makeDeps(options: FakeOptions = {}) {
   const keys = new Map<string, string>();
   const values = new Map<string, string>();
+  const keyDelay = options.keyDelay ?? (() => 0);
+  const valueDelay = options.valueDelay ?? (() => 0);
   let counter = 0;
+  let keyReadsFail = false;
   const keyStore: KeyStore = {
-    get: async (k) => keys.get(k) ?? null,
-    set: async (k, v) => void keys.set(k, v),
-    remove: async (k) => void keys.delete(k),
+    get: async (k) => {
+      if (keyReadsFail) throw new Error('keychain unavailable');
+      return keys.get(k) ?? null;
+    },
+    set: async (k, v) => {
+      await sleep(keyDelay());
+      keys.set(k, v);
+    },
+    remove: async (k) => {
+      await sleep(keyDelay());
+      keys.delete(k);
+    },
   };
   const valueStore: ValueStore = {
     getItem: async (k) => values.get(k) ?? null,
-    setItem: async (k, v) => void values.set(k, v),
-    removeItem: async (k) => void values.delete(k),
+    setItem: async (k, v) => {
+      await sleep(valueDelay());
+      values.set(k, v);
+    },
+    removeItem: async (k) => {
+      await sleep(valueDelay());
+      values.delete(k);
+    },
   };
   const cipher: Cipher = {
     encrypt: async (plaintext) => {
@@ -32,7 +54,14 @@ function makeDeps() {
       return Uint8Array.from(body.split('.'), (b) => Number(b) - 1);
     },
   };
-  return { keys, values, storage: new EncryptedStorage({ keyStore, valueStore, cipher }) };
+  return {
+    keys,
+    values,
+    failKeyReads: () => {
+      keyReadsFail = true;
+    },
+    storage: new EncryptedStorage({ keyStore, valueStore, cipher }),
+  };
 }
 
 describe('EncryptedStorage (supabase-js auth storage)', () => {
@@ -78,6 +107,43 @@ describe('EncryptedStorage (supabase-js auth storage)', () => {
     expect(await storage.getItem('k')).toBeNull();
     expect(keys.has('k')).toBe(false);
     expect(values.has('k')).toBe(false);
+  });
+
+  it('keeps key and ciphertext paired when writes overlap (concurrent token refreshes)', async () => {
+    // First keychain write is slow, second fast; AsyncStorage the other way round. Unserialised,
+    // this leaves key #1 next to ciphertext #2 and the next read discards the session.
+    const keyDelays = [20, 0];
+    const valueDelays = [0, 20];
+    const { storage } = makeDeps({ keyDelay: () => keyDelays.shift() ?? 0, valueDelay: () => valueDelays.shift() ?? 0 });
+    await Promise.all([storage.setItem('k', 'first'), storage.setItem('k', 'second')]);
+    expect(await storage.getItem('k')).toBe('second');
+  });
+
+  it('applies overlapping operations in call order (property)', async () => {
+    type Op = { kind: 'set'; value: string } | { kind: 'remove' };
+    const op = fc.oneof(
+      fc.record({ kind: fc.constant('set' as const), value: fc.string({ minLength: 1, maxLength: 8 }) }),
+      fc.record({ kind: fc.constant('remove' as const) }),
+    );
+    await fc.assert(
+      fc.asyncProperty(fc.array(op, { minLength: 1, maxLength: 6 }), fc.array(fc.integer({ min: 0, max: 3 }), { minLength: 24, maxLength: 24 }), async (ops: Op[], delays) => {
+        let i = 0;
+        const next = () => delays[i++ % delays.length] ?? 0;
+        const { storage } = makeDeps({ keyDelay: next, valueDelay: next });
+        await Promise.all(ops.map((o) => (o.kind === 'set' ? storage.setItem('k', o.value) : storage.removeItem('k'))));
+        const last = ops[ops.length - 1];
+        expect(await storage.getItem('k')).toBe(last?.kind === 'set' ? last.value : null);
+      }),
+      { numRuns: 50 },
+    );
+  });
+
+  it('propagates Keychain read errors instead of deleting the session', async () => {
+    const { storage, keys, values, failKeyReads } = makeDeps();
+    await storage.setItem('k', 'v');
+    failKeyReads();
+    await expect(storage.getItem('k')).rejects.toThrow('keychain unavailable');
+    expect(keys.has('k') && values.has('k')).toBe(true);
   });
 
   it('removes both halves', async () => {

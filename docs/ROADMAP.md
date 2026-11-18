@@ -19,7 +19,7 @@ Each milestone ends with: typecheck + lint + tests green, `security-reviewer` pa
 3. Google provider: only the client IDs in use; `skip_nonce_check` on Google only (Apple keeps nonce checks).
 4. Revoke the Sign in with Apple token on account deletion (guideline 5.1.1(v)); Apple key as an Edge Function secret; fail closed.
 5. Require recent re-authentication (Face ID / provider) before account deletion.
-6. Session storage hardening: serialise reads/writes, write ciphertext before swapping keys, delete only on authentication-tag failure (not on Keychain errors).
+6. Session storage hardening: ~~serialise reads/writes~~ and ~~delete only on authentication failure, not on Keychain errors~~ (done: overlapping token refreshes wiped a real session in the simulator). Still open: crash-safe writes (a crash between the Keychain and AsyncStorage writes still loses the session), and signing the user out in the UI when the stored session is gone (today the app keeps a dead in-memory token and every request gets a 401).
 7. App lock: escape hatch when biometrics/passcode are removed (sign out + clear preference); clear the preference on account deletion; native app-switcher snapshot cover verified on a device.
 8. Recovery UI when the active-budget query fails (today the splash fails closed); re-check the session if a delete response is lost.
 9. Hosted project: review `jwt_expiry`, `site_url`, redirect allowlist; secrets only via `env()`.

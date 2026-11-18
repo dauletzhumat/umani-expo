@@ -1,3 +1,4 @@
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { err, ok, type Result } from '@/domain/shared/result';
@@ -26,8 +27,19 @@ export async function savePreferences(userId: string, preferences: Partial<Profi
  * delete-account Edge Function, then clears the local session.
  */
 export async function deleteAccount(): Promise<Result<void, 'failed'>> {
-  const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+  let { error } = await invokeDelete();
+  // A 401 means the access token expired without a client-side refresh (the auto-refresh timer
+  // pauses while the JS thread is suspended). Refresh once and retry; the server re-verifies.
+  if (error instanceof FunctionsHttpError && error.context instanceof Response && error.context.status === 401) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error !== null) return err('failed');
+    ({ error } = await invokeDelete());
+  }
   if (error !== null) return err('failed');
   await supabase.auth.signOut({ scope: 'local' });
   return ok(undefined);
+}
+
+function invokeDelete() {
+  return supabase.functions.invoke('delete-account', { method: 'POST' });
 }
