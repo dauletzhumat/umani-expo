@@ -20,6 +20,11 @@ export type Database = {
 "create_account":
 { Args: { "p_currency": string,"p_idempotency_key": string,"p_include_in_budget"?: boolean,"p_institution"?: string,"p_kind": Database["public"]['Enums']["account_kind"],"p_linked_envelope_id"?: string,"p_name": string,"p_opening_balance"?: string,"p_opening_on"?: string,"p_opening_rate"?: string }; Returns: string
                            },
+"fx_rate":
+{ Args: { "p_from": string,"p_to": string }; Returns: {
+              "as_of": string,"rate": string,"source": string
+            }[]
+                           },
 "purge_account":
 { Args: { "p_user_id": string }; Returns: undefined
                            },
@@ -332,6 +337,26 @@ isOneToOne: false
                     {
       foreignKeyName: "profiles_base_currency_fkey"
       columns: ["base_currency"]
+isOneToOne: false
+      referencedRelation: "currencies"
+      referencedColumns: ["code"]
+    }
+                  ]
+                },"reference_rates": {
+                  Row: {
+                    "currency": string,"fetched_at": string,"kzt_per_unit": number,"rate_date": string,"source": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "currency": string,"fetched_at"?: string,"kzt_per_unit": number,"rate_date": string,"source"?: string
+                  }
+                  Update: {
+                    "currency"?: string,"fetched_at"?: string,"kzt_per_unit"?: number,"rate_date"?: string,"source"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "reference_rates_currency_fkey"
+      columns: ["currency"]
 isOneToOne: false
       referencedRelation: "currencies"
       referencedColumns: ["code"]

@@ -25,7 +25,7 @@ select set_config('t.budget', (select id::text from public.budgets), true);
 select set_config('t.entry', (select id::text from public.ledger_entries limit 1), true);
 select set_config('t.line', (select id::text from public.ledger_lines limit 1), true);
 reset role;
-select set_config('t.sys', (select id::text from public.accounts where kind = 'system' limit 1), true);
+select set_config('t.sys', (select id::text from public.accounts where kind = 'system' and user_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' limit 1), true);
 select lives_ok('set constraints all immediate', 'RPC-written data passes every deferred check');
 -- SET CONSTRAINTS lasts for the rest of the transaction; go back to commit-time checks.
 set constraints all deferred;
