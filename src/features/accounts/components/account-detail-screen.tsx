@@ -18,8 +18,8 @@ import { spacing } from '@/ui/tokens';
 import { archiveAccount, reconcileAccount, revalueAccount, useFxRate, useRefreshAfterWrite } from '../api/accounts';
 import { rateFromInput, type Account, type AccountError } from '../model/account';
 import { parseLocale } from './create-account-screen';
-import { effectiveRateInput, RateField } from './rate-field';
-import { useIntentKey } from './use-intent-key';
+import { effectiveRateInput, RateField } from '@/ui/rate-field';
+import { useIntentKey } from '@/lib/use-intent-key';
 
 export type AccountDetailScreenProps = Readonly<{
   account: Account;

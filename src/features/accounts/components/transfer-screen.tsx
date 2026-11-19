@@ -16,8 +16,8 @@ import { TextField } from '@/ui/text-field';
 import { recordTransfer, useEnvelopeChoices, useFxRate, useRefreshAfterWrite } from '../api/accounts';
 import { formatRate, rateFromInput, type Account, type AccountError } from '../model/account';
 import { parseLocale } from './create-account-screen';
-import { effectiveRateInput, RateField } from './rate-field';
-import { useIntentKey } from './use-intent-key';
+import { effectiveRateInput, RateField } from '@/ui/rate-field';
+import { useIntentKey } from '@/lib/use-intent-key';
 
 const ENVELOPE_KEYS = [
   'envelope.needs',
