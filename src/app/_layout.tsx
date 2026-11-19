@@ -97,6 +97,15 @@ function RootNavigator() {
             // headerBackTitle here (not only the tabs title) so a live language switch updates it
             options={{ title: t('settings.title'), headerLargeTitle: true, headerBackTitle: t('tabs.home') }}
           />
+          <Stack.Screen
+            name="accounts/new"
+            options={{ title: t('accounts.newTitle'), presentation: 'modal', headerBackTitle: t('accounts.cancel') }}
+          />
+          <Stack.Screen name="accounts/[id]" options={{ title: '', headerBackTitle: t('tabs.home') }} />
+          <Stack.Screen
+            name="transfer"
+            options={{ title: t('accounts.transferTitle'), presentation: 'modal', headerBackTitle: t('accounts.cancel') }}
+          />
         </Stack.Protected>
       </Stack>
     </NavigationThemeProvider>

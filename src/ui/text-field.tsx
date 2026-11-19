@@ -29,7 +29,7 @@ export function TextField({ label, error, ...input }: TextFieldProps) {
         ]}
       />
       {error !== undefined && (
-        <Text variant="footnote" color="negative" accessibilityLiveRegion="polite">
+        <Text variant="footnote" color="negative" accessibilityRole="alert" accessibilityLiveRegion="polite">
           {error}
         </Text>
       )}
