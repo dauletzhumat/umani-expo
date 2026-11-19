@@ -438,3 +438,8 @@ enabled = true
 client_id = "617344693532-74c8hkdftpf70423726m408o20c1jjd6.apps.googleusercontent.com,617344693532-ltigh43a21t6jmh68br0utbaerd5sha3.apps.googleusercontent.com"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 skip_nonce_check = true
+
+# Called by the daily scheduler with SYNC_RATES_SECRET (not a JWT), never by the app.
+# The function checks the secret itself and fails closed.
+[functions.sync-reference-rates]
+verify_jwt = false
