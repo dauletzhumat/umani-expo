@@ -17,6 +17,9 @@ export type Database = {
 "archive_account":
 { Args: { "p_account_id": string }; Returns: undefined
                            },
+"change_budget_method":
+{ Args: { "p_custom"?: Json,"p_idempotency_key": string,"p_method": Database["public"]['Enums']["budget_method"],"p_reassign"?: Json }; Returns: string
+                           },
 "create_account":
 { Args: { "p_currency": string,"p_idempotency_key": string,"p_include_in_budget"?: boolean,"p_institution"?: string,"p_kind": Database["public"]['Enums']["account_kind"],"p_linked_envelope_id"?: string,"p_name": string,"p_opening_balance"?: string,"p_opening_on"?: string,"p_opening_rate"?: string }; Returns: string
                            },
@@ -93,6 +96,38 @@ isOneToOne: false
       columns: ["linked_envelope_id","user_id"]
 isOneToOne: false
       referencedRelation: "envelopes"
+      referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"budget_method_changes": {
+                  Row: {
+                    "budget_id": string,"created_at": string,"entry_id": string | null,"from_method": Database["public"]['Enums']["budget_method"],"id": string,"idempotency_key": string,"request_hash": string,"to_method": Database["public"]['Enums']["budget_method"],"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "budget_id": string,"created_at"?: string,"entry_id"?: string | null,"from_method": Database["public"]['Enums']["budget_method"],"id"?: string,"idempotency_key": string,"request_hash": string,"to_method": Database["public"]['Enums']["budget_method"],"user_id": string
+                  }
+                  Update: {
+                    "budget_id"?: string,"created_at"?: string,"entry_id"?: string | null,"from_method"?: Database["public"]['Enums']["budget_method"],"id"?: string,"idempotency_key"?: string,"request_hash"?: string,"to_method"?: Database["public"]['Enums']["budget_method"],"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "budget_method_changes_budget_id_user_id_fkey"
+      columns: ["budget_id","user_id"]
+isOneToOne: false
+      referencedRelation: "budgets"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "budget_method_changes_entry_id_user_id_fkey"
+      columns: ["entry_id","user_id"]
+isOneToOne: false
+      referencedRelation: "ledger_entries"
+      referencedColumns: ["id","user_id"]
+    },{
+      foreignKeyName: "budget_method_changes_entry_id_user_id_fkey"
+      columns: ["entry_id","user_id"]
+isOneToOne: false
+      referencedRelation: "reportable_entries"
       referencedColumns: ["id","user_id"]
     }
                   ]
