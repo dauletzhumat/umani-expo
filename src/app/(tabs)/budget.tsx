@@ -4,6 +4,7 @@ import { useSession } from '@/features/auth/session-provider';
 import { useAccounts } from '@/features/accounts/api/accounts';
 import { useActiveBudget } from '@/features/budget/api/use-active-budget';
 import { BudgetScreen } from '@/features/budget/components/budget-screen';
+import { LimitsSection } from '@/features/expenses/components/limits-section';
 
 export default function BudgetRoute() {
   const { userId } = useSession();
@@ -20,6 +21,15 @@ export default function BudgetRoute() {
       onEditIncome={(id) => router.push({ pathname: '/income/[id]', params: { id } })}
       onReallocate={(from) => router.push(from === undefined ? '/reallocate' : { pathname: '/reallocate', params: { from } })}
       onChangeMethod={() => router.push('/budget-method')}
+      limits={
+        <LimitsSection
+          userId={userId}
+          base={budget.base_currency}
+          onAddLimit={() => router.push('/limits/new')}
+          onOpenLimit={(id) => router.push({ pathname: '/limits/[id]', params: { id } })}
+          onManageCategories={() => router.push('/categories')}
+        />
+      }
     />
   );
 }

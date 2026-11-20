@@ -28,6 +28,7 @@ export default function AccountRoute() {
         account={account}
         base={base}
         onTransfer={() => router.push({ pathname: '/transfer', params: { from: account.id } })}
+        onHistory={() => router.push({ pathname: '/history', params: { account: account.id } })}
         onArchived={() => router.back()}
       />
     </>
