@@ -17,15 +17,29 @@ export type Database = {
 "archive_account":
 { Args: { "p_account_id": string }; Returns: undefined
                            },
+"archive_category":
+{ Args: { "p_category_id": string }; Returns: undefined
+                           },
 "change_budget_method":
 { Args: { "p_custom"?: Json,"p_idempotency_key": string,"p_method": Database["public"]['Enums']["budget_method"],"p_reassign"?: Json }; Returns: string
                            },
 "create_account":
 { Args: { "p_currency": string,"p_idempotency_key": string,"p_include_in_budget"?: boolean,"p_institution"?: string,"p_kind": Database["public"]['Enums']["account_kind"],"p_linked_envelope_id"?: string,"p_name": string,"p_opening_balance"?: string,"p_opening_on"?: string,"p_opening_rate"?: string }; Returns: string
                            },
+"create_category":
+{ Args: { "p_default_envelope_id"?: string,"p_idempotency_key": string,"p_kind": Database["public"]['Enums']["category_kind"],"p_name": string }; Returns: string
+                           },
+"delete_limit":
+{ Args: { "p_limit_id": string }; Returns: undefined
+                           },
 "fx_rate":
 { Args: { "p_from": string,"p_to": string }; Returns: {
               "as_of": string,"rate": string,"source": string
+            }[]
+                           },
+"limit_progress":
+{ Args: { "p_month": string }; Returns: {
+              "category_id": string,"envelope_id": string,"limit_id": string,"limit_minor": string,"period_month": string,"spent_minor": string
             }[]
                            },
 "purge_account":
@@ -55,8 +69,14 @@ export type Database = {
 "set_ai_consent":
 { Args: { "p_consent": boolean }; Returns: string
                            },
+"set_limit":
+{ Args: { "p_category_id"?: string,"p_envelope_id"?: string,"p_limit": string,"p_period_month"?: string }; Returns: string
+                           },
 "setup_budget":
 { Args: { "p_base_currency": string,"p_custom"?: Json,"p_method": Database["public"]['Enums']["budget_method"] }; Returns: string
+                           },
+"update_category":
+{ Args: { "p_category_id": string,"p_clear_default"?: boolean,"p_default_envelope_id"?: string,"p_name"?: string }; Returns: undefined
                            }
           }
           Enums: {
@@ -153,14 +173,14 @@ isOneToOne: false
                   ]
                 },"categories": {
                   Row: {
-                    "archived_at": string | null,"created_at": string,"default_envelope_id": string | null,"icon": string | null,"id": string,"kind": Database["public"]['Enums']["category_kind"],"name": string | null,"name_key": string | null,"user_id": string
+                    "archived_at": string | null,"created_at": string,"default_envelope_id": string | null,"icon": string | null,"id": string,"idempotency_key": string | null,"kind": Database["public"]['Enums']["category_kind"],"name": string | null,"name_key": string | null,"request_hash": string | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "archived_at"?: string | null,"created_at"?: string,"default_envelope_id"?: string | null,"icon"?: string | null,"id"?: string,"kind": Database["public"]['Enums']["category_kind"],"name"?: string | null,"name_key"?: string | null,"user_id": string
+                    "archived_at"?: string | null,"created_at"?: string,"default_envelope_id"?: string | null,"icon"?: string | null,"id"?: string,"idempotency_key"?: string | null,"kind": Database["public"]['Enums']["category_kind"],"name"?: string | null,"name_key"?: string | null,"request_hash"?: string | null,"user_id": string
                   }
                   Update: {
-                    "archived_at"?: string | null,"created_at"?: string,"default_envelope_id"?: string | null,"icon"?: string | null,"id"?: string,"kind"?: Database["public"]['Enums']["category_kind"],"name"?: string | null,"name_key"?: string | null,"user_id"?: string
+                    "archived_at"?: string | null,"created_at"?: string,"default_envelope_id"?: string | null,"icon"?: string | null,"id"?: string,"idempotency_key"?: string | null,"kind"?: Database["public"]['Enums']["category_kind"],"name"?: string | null,"name_key"?: string | null,"request_hash"?: string | null,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -464,6 +484,20 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "categories"
       referencedColumns: ["id","user_id"]
+    }
+                  ]
+                },"entry_history": {
+                  Row: {
+                    "account_id": string,"amount_minor": string | null,"base_amount_minor": string | null,"category_id": string | null,"created_at": string,"currency": string,"entry_id": string,"envelope_id": string | null,"is_reversed": boolean | null,"kind": Database["public"]['Enums']["entry_kind"],"note": string | null,"occurred_on": string,"reverses_entry_id": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "ledger_lines_currency_fkey"
+      columns: ["currency"]
+isOneToOne: false
+      referencedRelation: "currencies"
+      referencedColumns: ["code"]
     }
                   ]
                 },"envelope_balances": {
