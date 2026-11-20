@@ -21,6 +21,7 @@ export default function BudgetRoute() {
       onEditIncome={(id) => router.push({ pathname: '/income/[id]', params: { id } })}
       onReallocate={(from) => router.push(from === undefined ? '/reallocate' : { pathname: '/reallocate', params: { from } })}
       onChangeMethod={() => router.push('/budget-method')}
+      onOpenSavings={() => router.push('/savings')}
       limits={
         <LimitsSection
           userId={userId}

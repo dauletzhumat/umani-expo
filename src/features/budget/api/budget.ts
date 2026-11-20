@@ -180,7 +180,7 @@ export function useRefreshAfterBudgetWrite() {
   const queryClient = useQueryClient();
   return useCallback(async () => {
     await Promise.all(
-      ['accounts', 'envelopes', 'budget', 'fx', 'income', 'history', 'limits'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+      ['accounts', 'envelopes', 'budget', 'fx', 'income', 'history', 'limits', 'savings'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
     );
   }, [queryClient]);
 }

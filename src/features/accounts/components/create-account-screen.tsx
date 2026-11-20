@@ -19,18 +19,29 @@ import { ACCOUNT_KINDS, rateFromInput, type AccountError, type AccountKind } fro
 import { effectiveRateInput, RateField } from '@/ui/rate-field';
 import { useIntentKey } from '@/lib/use-intent-key';
 
-export type CreateAccountScreenProps = Readonly<{ base: CurrencyCode; onDone: () => void }>;
+export type CreateAccountScreenProps = Readonly<{
+  base: CurrencyCode;
+  /**
+   * Prefill from the deposit planner (DEP-3): a deposit linked to a savings envelope. A linked
+   * account is always budgeted and starts empty — money moves in by transfer (DEP-4), so it stays
+   * in the envelope instead of landing in Unallocated as an opening balance would.
+   */
+  initial?: Readonly<{ name?: string; kind?: AccountKind; linkedEnvelopeId?: string }>;
+  onDone: () => void;
+}>;
 
 export function parseLocale(language: string): 'ru' | 'kk' | 'en' {
   return language === 'kk' || language === 'en' ? language : 'ru';
 }
 
 /** New account (PRD ACC-1…3, ACC-8): kind, currency, opening balance at a confirmed rate, budget flag. */
-export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) {
+export function CreateAccountScreen({ base, initial, onDone }: CreateAccountScreenProps) {
   const { t, i18n } = useTranslation();
   const refresh = useRefreshAfterWrite();
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<AccountKind>('card');
+  const linkedEnvelopeId = initial?.linkedEnvelopeId;
+  const linked = linkedEnvelopeId !== undefined;
+  const [name, setName] = useState(initial?.name ?? '');
+  const [kind, setKind] = useState<AccountKind>(linked ? 'deposit' : (initial?.kind ?? 'card'));
   const [currency, setCurrency] = useState<CurrencyCode>(base);
   const [amountText, setAmountText] = useState('');
   const [rateText, setRateText] = useState<string | null>(null);
@@ -42,11 +53,11 @@ export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) 
   const suggestion = useFxRate(currency, base);
 
   const foreign = currency !== base;
-  const needsRate = foreign && amountText.trim() !== '' && !/^[0\s.,]*$/.test(amountText);
+  const needsRate = !linked && foreign && amountText.trim() !== '' && !/^[0\s.,]*$/.test(amountText);
 
   async function save() {
     let opening: Money = money(0n, currency);
-    if (amountText.trim() !== '') {
+    if (!linked && amountText.trim() !== '') {
       const parsed = parseMoney(amountText, currency, parseLocale(i18n.language));
       if (!parsed.ok) {
         setFieldError({ amount: t('accounts.invalidAmount') });
@@ -71,9 +82,10 @@ export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) 
       kind,
       opening,
       openingRate: rate,
-      includeInBudget: inBudget,
+      includeInBudget: linked || inBudget,
+      linkedEnvelopeId,
     };
-    const signature = [input.name, input.kind, toWire(input.opening), input.opening.currency, input.openingRate, input.includeInBudget].join('|');
+    const signature = [input.name, input.kind, toWire(input.opening), input.opening.currency, input.openingRate, input.includeInBudget, input.linkedEnvelopeId].join('|');
     const result = await createAccount(input, intent.keyFor(signature));
     if (!result.ok) {
       setSaving(false);
@@ -93,15 +105,19 @@ export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) 
         placeholder={t(`accounts.kind_${kind}`)}
         maxLength={60}
       />
-      <Text variant="footnote" color="textSecondary">
-        {t('accounts.kind')}
-      </Text>
-      <ChoiceList
-        accessibilityLabel={t('accounts.kind')}
-        value={kind}
-        onChange={setKind}
-        choices={ACCOUNT_KINDS.map((k) => ({ value: k, label: t(`accounts.kind_${k}`) }))}
-      />
+      {!linked && (
+        <>
+          <Text variant="footnote" color="textSecondary">
+            {t('accounts.kind')}
+          </Text>
+          <ChoiceList
+            accessibilityLabel={t('accounts.kind')}
+            value={kind}
+            onChange={setKind}
+            choices={ACCOUNT_KINDS.map((k) => ({ value: k, label: t(`accounts.kind_${k}`) }))}
+          />
+        </>
+      )}
       <Text variant="footnote" color="textSecondary">
         {t('accounts.currency')}
       </Text>
@@ -114,14 +130,20 @@ export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) 
         }}
         options={CURRENCY_CODES.map((code) => ({ value: code, label: code }))}
       />
-      <TextField
-        label={`${t('accounts.opening')}, ${currency}`}
-        value={amountText}
-        onChangeText={setAmountText}
-        keyboardType="decimal-pad"
-        placeholder="0"
-        error={fieldError.amount}
-      />
+      {linked ? (
+        <Text variant="footnote" color="textSecondary">
+          {t('accounts.linkedDepositHint')}
+        </Text>
+      ) : (
+        <TextField
+          label={`${t('accounts.opening')}, ${currency}`}
+          value={amountText}
+          onChangeText={setAmountText}
+          keyboardType="decimal-pad"
+          placeholder="0"
+          error={fieldError.amount}
+        />
+      )}
       {needsRate && (
         <RateField
           from={currency}
@@ -132,21 +154,23 @@ export function CreateAccountScreen({ base, onDone }: CreateAccountScreenProps) 
           error={fieldError.rate}
         />
       )}
-      <View style={styles.group}>
-        <Text variant="body">{t('accounts.inBudget')}</Text>
-        <SegmentedControl
-          accessibilityLabel={t('accounts.inBudget')}
-          value={inBudget ? 'yes' : 'no'}
-          onChange={(value) => setInBudget(value === 'yes')}
-          options={[
-            { value: 'yes', label: t('accounts.yes') },
-            { value: 'no', label: t('accounts.no') },
-          ]}
-        />
-        <Text variant="footnote" color="textSecondary">
-          {t('accounts.inBudgetHint')}
-        </Text>
-      </View>
+      {!linked && (
+        <View style={styles.group}>
+          <Text variant="body">{t('accounts.inBudget')}</Text>
+          <SegmentedControl
+            accessibilityLabel={t('accounts.inBudget')}
+            value={inBudget ? 'yes' : 'no'}
+            onChange={(value) => setInBudget(value === 'yes')}
+            options={[
+              { value: 'yes', label: t('accounts.yes') },
+              { value: 'no', label: t('accounts.no') },
+            ]}
+          />
+          <Text variant="footnote" color="textSecondary">
+            {t('accounts.inBudgetHint')}
+          </Text>
+        </View>
+      )}
       {saveError !== null && (
         <Text variant="footnote" color="negative" accessibilityRole="alert" accessibilityLiveRegion="polite">
           {t(`accounts.error_${saveError}`)}

@@ -35,20 +35,24 @@ export type TransferScreenProps = Readonly<{
   userId: string | null;
   accounts: readonly Account[];
   initialFromId?: string;
+  /** Preselected destination, e.g. a deposit to contribute to (DEP-4). */
+  initialToId?: string;
   onDone: () => void;
 }>;
 
 /** Transfer between own accounts, incl. cross-currency with the derived rate (PRD ACC-6, ACC-8). */
-export function TransferScreen({ userId, accounts, initialFromId, onDone }: TransferScreenProps) {
+export function TransferScreen({ userId, accounts, initialFromId, initialToId, onDone }: TransferScreenProps) {
   const { t, i18n } = useTranslation();
   const locale = parseLocale(i18n.language);
   const refresh = useRefreshAfterWrite();
   const envelopes = useEnvelopeChoices(userId);
 
   // an archived or unknown initial account falls back to the first one
-  const firstId = accounts.find((a) => a.id === initialFromId)?.id ?? accounts[0]?.id ?? '';
+  const presetTo = accounts.find((a) => a.id === initialToId)?.id;
+  const firstId =
+    accounts.find((a) => a.id === initialFromId)?.id ?? accounts.find((a) => a.id !== presetTo)?.id ?? accounts[0]?.id ?? '';
   const [fromId, setFromId] = useState(firstId);
-  const [toId, setToId] = useState(() => accounts.find((a) => a.id !== firstId)?.id ?? '');
+  const [toId, setToId] = useState(() => presetTo ?? accounts.find((a) => a.id !== firstId)?.id ?? '');
   const [sentText, setSentText] = useState('');
   const [receivedText, setReceivedText] = useState('');
   const [envelopeId, setEnvelopeId] = useState<string | null>(null);

@@ -26,6 +26,8 @@ export type BudgetScreenProps = Readonly<{
   onEditIncome: (entryId: string) => void;
   onReallocate: (fromEnvelopeId?: string) => void;
   onChangeMethod: () => void;
+  /** Deposits planner and savings goals (DEP-1…4, BUD-7). */
+  onOpenSavings: () => void;
   /** Monthly limits, composed by the route from the expenses feature (EXP-4). */
   limits?: ReactNode;
 }>;
@@ -40,6 +42,7 @@ export function BudgetScreen({
   onEditIncome,
   onReallocate,
   onChangeMethod,
+  onOpenSavings,
   limits,
 }: BudgetScreenProps) {
   const { t, i18n } = useTranslation();
@@ -58,6 +61,7 @@ export function BudgetScreen({
     <Screen title={t('budget.title')}>
       <Surface padded={false}>
         <ListRow title={t('budget.method', { method: methodLabel })} onPress={onChangeMethod} />
+        <ListRow title={t('budget.savingsPlanner')} onPress={onOpenSavings} />
       </Surface>
 
       {unallocated !== undefined && unallocated.balance.amountMinor !== 0n && (

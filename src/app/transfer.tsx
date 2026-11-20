@@ -8,7 +8,7 @@ import { useActiveBudget } from '@/features/budget/api/use-active-budget';
 import { Screen } from '@/ui/screen';
 
 export default function TransferRoute() {
-  const { from } = useLocalSearchParams<{ from?: string }>();
+  const { from, to } = useLocalSearchParams<{ from?: string; to?: string }>();
   const { userId } = useSession();
   const base = useActiveBudget(userId).data?.base_currency;
   const query = useAccounts(userId, base);
@@ -20,5 +20,5 @@ export default function TransferRoute() {
     );
   }
   const accounts = query.data.filter((a) => !a.archived);
-  return <TransferScreen userId={userId} accounts={accounts} initialFromId={from} onDone={() => router.back()} />;
+  return <TransferScreen userId={userId} accounts={accounts} initialFromId={from} initialToId={to} onDone={() => router.back()} />;
 }

@@ -129,6 +129,11 @@ function RootNavigator() {
             name="limits/new"
             options={{ title: t('expenses.newLimitTitle'), presentation: 'modal', headerBackTitle: t('expenses.cancel') }}
           />
+          <Stack.Screen name="savings/index" options={{ title: t('savings.title'), headerBackTitle: t('tabs.budget') }} />
+          <Stack.Screen
+            name="savings/goal"
+            options={{ title: t('savings.goalTitle'), presentation: 'modal', headerBackTitle: t('savings.cancel') }}
+          />
           <Stack.Screen name="limits/[id]" options={{ title: t('expenses.editLimitTitle'), headerBackTitle: t('tabs.budget') }} />
         </Stack.Protected>
       </Stack>

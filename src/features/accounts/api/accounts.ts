@@ -124,7 +124,7 @@ export function useRefreshAfterWrite() {
   const queryClient = useQueryClient();
   return useCallback(async () => {
     await Promise.all(
-      ['accounts', 'envelopes', 'budget', 'fx', 'history', 'limits'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+      ['accounts', 'envelopes', 'budget', 'fx', 'history', 'limits', 'savings'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
     );
   }, [queryClient]);
 }
@@ -138,6 +138,8 @@ export type NewAccount = Readonly<{
   /** Base units per one unit of the account currency; required for a foreign opening balance. */
   openingRate?: string;
   includeInBudget: boolean;
+  /** A deposit opened from the planner, linked to its savings envelope (DEP-3). */
+  linkedEnvelopeId?: string;
 }>;
 
 export async function createAccount(input: NewAccount, idempotencyKey: string): WriteResult<string> {
@@ -149,6 +151,7 @@ export async function createAccount(input: NewAccount, idempotencyKey: string): 
     p_opening_balance: input.opening.amountMinor === 0n ? undefined : toWire(input.opening),
     p_opening_rate: input.openingRate,
     p_include_in_budget: input.includeInBudget,
+    p_linked_envelope_id: input.linkedEnvelopeId,
   });
   return error === null ? ok(String(data)) : err(toAccountError(error.message));
 }
