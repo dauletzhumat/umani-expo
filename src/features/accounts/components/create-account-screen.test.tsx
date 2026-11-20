@@ -20,11 +20,11 @@ jest.mock('../api/accounts', () => ({
 
 const createAccountMock = jest.mocked(createAccount);
 
-async function renderCreate(onDone = jest.fn()) {
+async function renderCreate(onDone = jest.fn(), initial?: Parameters<typeof CreateAccountScreen>[0]['initial']) {
   await render(
     <I18nextProvider i18n={createI18n('en')}>
       <ThemeProvider>
-        <CreateAccountScreen base="KZT" onDone={onDone} />
+        <CreateAccountScreen base="KZT" initial={initial} onDone={onDone} />
       </ThemeProvider>
     </I18nextProvider>,
   );
@@ -94,5 +94,24 @@ describe('CreateAccountScreen', () => {
     await user.press(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('You can have up to 50 accounts')).toBeTruthy();
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('a deposit from the planner is linked to its envelope, budgeted and starts empty (DEP-3, DEP-4)', async () => {
+    const user = userEvent.setup();
+    await renderCreate(jest.fn(), { name: 'UMANI · Savings', kind: 'deposit', linkedEnvelopeId: 'env-savings' });
+    expect(screen.getByLabelText('Name').props.value).toBe('UMANI · Savings');
+    expect(screen.queryByRole('radiogroup', { name: 'Type' })).toBeNull(); // the kind is fixed: deposit
+    expect(screen.queryByLabelText(/^Opening balance/)).toBeNull();
+    expect(screen.queryByRole('radiogroup', { name: 'Count in the budget' })).toBeNull();
+    expect(screen.getByText(/Move money in with a transfer/)).toBeTruthy();
+    await user.press(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(createAccountMock).toHaveBeenCalledTimes(1));
+    expect(createAccountMock.mock.calls[0]?.[0]).toMatchObject({
+      name: 'UMANI · Savings',
+      kind: 'deposit',
+      opening: money(0n, 'KZT'),
+      includeInBudget: true,
+      linkedEnvelopeId: 'env-savings',
+    });
   });
 });
