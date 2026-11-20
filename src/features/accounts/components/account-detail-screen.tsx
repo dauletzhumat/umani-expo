@@ -25,13 +25,15 @@ export type AccountDetailScreenProps = Readonly<{
   account: Account;
   base: CurrencyCode;
   onTransfer: () => void;
+  /** The transaction history filtered to this account (ACC-5). */
+  onHistory: () => void;
   onArchived: () => void;
 }>;
 
 type Panel = 'none' | 'reconcile' | 'revalue';
 
 /** One account: balance, book value, reconciliation, revaluation and archive (PRD ACC-4, ACC-7). */
-export function AccountDetailScreen({ account, base, onTransfer, onArchived }: AccountDetailScreenProps) {
+export function AccountDetailScreen({ account, base, onTransfer, onHistory, onArchived }: AccountDetailScreenProps) {
   const { t, i18n } = useTranslation();
   const locale = parseLocale(i18n.language);
   const refresh = useRefreshAfterWrite();
@@ -163,6 +165,7 @@ export function AccountDetailScreen({ account, base, onTransfer, onArchived }: A
 
       {!account.archived && (
         <View style={styles.group}>
+          <Button label={t('accounts.history')} variant="secondary" onPress={onHistory} />
           <Button label={t('accounts.transfer')} variant="secondary" onPress={onTransfer} />
           <Button label={t('accounts.reconcile')} variant="secondary" onPress={() => open('reconcile')} />
           {panel === 'reconcile' && (

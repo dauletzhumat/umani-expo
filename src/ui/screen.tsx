@@ -17,7 +17,12 @@ export function Screen({ title, children }: ScreenProps) {
   const { colors } = useTheme();
   return (
     <SafeAreaView edges={['top']} style={[styles.flex, { backgroundColor: colors.bgGrouped }]}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      {/* "handled": a tap on a chip or button works at once while the keyboard is up (no extra tap) */}
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        contentContainerStyle={styles.content}>
         {title !== undefined && (
           <Text variant="title1" accessibilityRole="header">
             {title}

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -25,6 +26,8 @@ export type BudgetScreenProps = Readonly<{
   onEditIncome: (entryId: string) => void;
   onReallocate: (fromEnvelopeId?: string) => void;
   onChangeMethod: () => void;
+  /** Monthly limits, composed by the route from the expenses feature (EXP-4). */
+  limits?: ReactNode;
 }>;
 
 /** Budget tab: envelopes with balances, the Unallocated prompt and recent income (BUD-5, BUD-6). */
@@ -37,6 +40,7 @@ export function BudgetScreen({
   onEditIncome,
   onReallocate,
   onChangeMethod,
+  limits,
 }: BudgetScreenProps) {
   const { t, i18n } = useTranslation();
   const locale = localeOf(i18n.language);
@@ -79,7 +83,11 @@ export function BudgetScreen({
             <ListRow
               key={envelope.id}
               title={envelopeLabel(envelope, t)}
-              subtitle={t('budget.share', { percent: bpsLabel(envelope.allocationBps, locale) })}
+              subtitle={
+                envelope.balance.amountMinor < 0n
+                  ? `${t('budget.share', { percent: bpsLabel(envelope.allocationBps, locale) })} · ${t('budget.overspent')}`
+                  : t('budget.share', { percent: bpsLabel(envelope.allocationBps, locale) })
+              }
               trailing={<AmountText money={envelope.balance} mode={envelope.balance.amountMinor < 0n ? 'expense' : 'neutral'} />}
               onPress={() => onReallocate(envelope.id)}
             />
@@ -90,6 +98,8 @@ export function BudgetScreen({
         <Button label={t('budget.addIncome')} onPress={onAddIncome} />
         <Button label={t('budget.reallocate')} variant="secondary" onPress={() => onReallocate()} />
       </View>
+
+      {limits}
 
       <Text variant="headline" accessibilityRole="header">
         {t('budget.recentIncome')}
