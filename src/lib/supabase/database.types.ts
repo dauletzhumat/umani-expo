@@ -20,6 +20,9 @@ export type Database = {
 "archive_category":
 { Args: { "p_category_id": string }; Returns: undefined
                            },
+"archive_savings_goal":
+{ Args: { "p_goal_id": string }; Returns: undefined
+                           },
 "change_budget_method":
 { Args: { "p_custom"?: Json,"p_idempotency_key": string,"p_method": Database["public"]['Enums']["budget_method"],"p_reassign"?: Json }; Returns: string
                            },
@@ -71,6 +74,9 @@ export type Database = {
                            },
 "set_limit":
 { Args: { "p_category_id"?: string,"p_envelope_id"?: string,"p_limit": string,"p_period_month"?: string }; Returns: string
+                           },
+"set_savings_goal":
+{ Args: { "p_envelope_id": string,"p_target": string,"p_target_date"?: string }; Returns: string
                            },
 "setup_budget":
 { Args: { "p_base_currency": string,"p_custom"?: Json,"p_method": Database["public"]['Enums']["budget_method"] }; Returns: string
