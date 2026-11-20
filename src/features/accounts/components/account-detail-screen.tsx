@@ -18,20 +18,22 @@ import { spacing } from '@/ui/tokens';
 import { archiveAccount, reconcileAccount, revalueAccount, useFxRate, useRefreshAfterWrite } from '../api/accounts';
 import { rateFromInput, type Account, type AccountError } from '../model/account';
 import { parseLocale } from './create-account-screen';
-import { effectiveRateInput, RateField } from './rate-field';
-import { useIntentKey } from './use-intent-key';
+import { effectiveRateInput, RateField } from '@/ui/rate-field';
+import { useIntentKey } from '@/lib/use-intent-key';
 
 export type AccountDetailScreenProps = Readonly<{
   account: Account;
   base: CurrencyCode;
   onTransfer: () => void;
+  /** The transaction history filtered to this account (ACC-5). */
+  onHistory: () => void;
   onArchived: () => void;
 }>;
 
 type Panel = 'none' | 'reconcile' | 'revalue';
 
 /** One account: balance, book value, reconciliation, revaluation and archive (PRD ACC-4, ACC-7). */
-export function AccountDetailScreen({ account, base, onTransfer, onArchived }: AccountDetailScreenProps) {
+export function AccountDetailScreen({ account, base, onTransfer, onHistory, onArchived }: AccountDetailScreenProps) {
   const { t, i18n } = useTranslation();
   const locale = parseLocale(i18n.language);
   const refresh = useRefreshAfterWrite();
@@ -163,6 +165,7 @@ export function AccountDetailScreen({ account, base, onTransfer, onArchived }: A
 
       {!account.archived && (
         <View style={styles.group}>
+          <Button label={t('accounts.history')} variant="secondary" onPress={onHistory} />
           <Button label={t('accounts.transfer')} variant="secondary" onPress={onTransfer} />
           <Button label={t('accounts.reconcile')} variant="secondary" onPress={() => open('reconcile')} />
           {panel === 'reconcile' && (

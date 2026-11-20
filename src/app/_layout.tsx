@@ -103,9 +103,33 @@ function RootNavigator() {
           />
           <Stack.Screen name="accounts/[id]" options={{ title: '', headerBackTitle: t('tabs.home') }} />
           <Stack.Screen
+            name="income/new"
+            options={{ title: t('budget.incomeTitle'), presentation: 'modal', headerBackTitle: t('budget.cancel') }}
+          />
+          <Stack.Screen name="income/[id]" options={{ title: t('budget.editIncomeTitle'), headerBackTitle: t('tabs.budget') }} />
+          <Stack.Screen
+            name="reallocate"
+            options={{ title: t('budget.reallocateTitle'), presentation: 'modal', headerBackTitle: t('budget.cancel') }}
+          />
+          <Stack.Screen name="budget-method" options={{ title: t('budget.methodTitle'), headerBackTitle: t('tabs.budget') }} />
+          <Stack.Screen
             name="transfer"
             options={{ title: t('accounts.transferTitle'), presentation: 'modal', headerBackTitle: t('accounts.cancel') }}
           />
+          <Stack.Screen
+            name="expenses/new"
+            options={{ title: t('expenses.newTitle'), presentation: 'modal', headerBackTitle: t('expenses.cancel') }}
+          />
+          <Stack.Screen name="expenses/[id]" options={{ title: t('expenses.editTitle'), headerBackTitle: t('expenses.back') }} />
+          <Stack.Screen name="history" options={{ title: t('expenses.historyTitle'), headerBackTitle: t('tabs.home') }} />
+          <Stack.Screen name="categories/index" options={{ title: t('expenses.categoriesTitle'), headerBackTitle: t('expenses.back') }} />
+          <Stack.Screen name="categories/new" options={{ title: t('expenses.newCategory'), headerBackTitle: t('expenses.back') }} />
+          <Stack.Screen name="categories/[id]" options={{ title: t('expenses.editCategoryTitle'), headerBackTitle: t('expenses.back') }} />
+          <Stack.Screen
+            name="limits/new"
+            options={{ title: t('expenses.newLimitTitle'), presentation: 'modal', headerBackTitle: t('expenses.cancel') }}
+          />
+          <Stack.Screen name="limits/[id]" options={{ title: t('expenses.editLimitTitle'), headerBackTitle: t('tabs.budget') }} />
         </Stack.Protected>
       </Stack>
     </NavigationThemeProvider>

@@ -124,7 +124,7 @@ export function useRefreshAfterWrite() {
   const queryClient = useQueryClient();
   return useCallback(async () => {
     await Promise.all(
-      ['accounts', 'envelopes', 'budget', 'fx'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
+      ['accounts', 'envelopes', 'budget', 'fx', 'history', 'limits'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
     );
   }, [queryClient]);
 }
