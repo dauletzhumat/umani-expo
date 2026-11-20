@@ -1,13 +1,19 @@
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
-import type { CurrencyCode } from '@/domain/money/currency';
-import { Text } from '@/ui/text';
-import { TextField } from '@/ui/text-field';
-import { spacing } from '@/ui/tokens';
+import type { CurrencyCode } from '../domain/money/currency';
+import { Text } from './text';
+import { TextField } from './text-field';
+import { spacing } from './tokens';
 
-import type { FxRate } from '../api/accounts';
-import { formatDay } from '../model/account';
+/** A pre-fill rate and where it came from (api.fx_rate). */
+export type RateSuggestion = Readonly<{ rate: string; source: 'user' | 'nbk' | 'identity'; asOf: string }>;
+
+/** "2026-11-19" → "19.11.2026" (how dates read in Kazakhstan; avoids Hermes Intl gaps for kk). */
+function formatDay(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-');
+  return year === undefined || month === undefined || day === undefined ? isoDate : `${day}.${month}.${year}`;
+}
 
 export type RateFieldProps = Readonly<{
   from: CurrencyCode;
@@ -15,7 +21,7 @@ export type RateFieldProps = Readonly<{
   /** What the user typed; null until they touch the field, so the suggestion shows instead. */
   value: string | null;
   onChange: (value: string) => void;
-  suggestion: FxRate | null | undefined;
+  suggestion: RateSuggestion | null | undefined;
   error?: string;
 }>;
 
@@ -49,7 +55,7 @@ export function RateField({ from, to, value, onChange, suggestion, error }: Rate
 }
 
 /** The rate to submit: what the user typed, else the suggestion they saw. */
-export function effectiveRateInput(value: string | null, suggestion: FxRate | null | undefined): string {
+export function effectiveRateInput(value: string | null, suggestion: RateSuggestion | null | undefined): string {
   return value ?? suggestion?.rate ?? '';
 }
 

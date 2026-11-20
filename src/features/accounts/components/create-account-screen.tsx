@@ -16,8 +16,8 @@ import { spacing } from '@/ui/tokens';
 
 import { createAccount, useFxRate, useRefreshAfterWrite } from '../api/accounts';
 import { ACCOUNT_KINDS, rateFromInput, type AccountError, type AccountKind } from '../model/account';
-import { effectiveRateInput, RateField } from './rate-field';
-import { useIntentKey } from './use-intent-key';
+import { effectiveRateInput, RateField } from '@/ui/rate-field';
+import { useIntentKey } from '@/lib/use-intent-key';
 
 export type CreateAccountScreenProps = Readonly<{ base: CurrencyCode; onDone: () => void }>;
 
