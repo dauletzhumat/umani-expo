@@ -24,6 +24,20 @@ create table public.currencies (
 -- RLS: select to authenticated; no writes.
 ```
 
+```sql
+create table public.reference_rates (            -- migration 0007
+  currency     char(3) references currencies,    -- never KZT (the cross currency)
+  rate_date    date,
+  kzt_per_unit numeric(24,12) check (> 0),       -- tenge per one unit (feed value / quant)
+  source       text default 'nbk',               -- National Bank of Kazakhstan
+  fetched_at   timestamptz,
+  primary key (currency, rate_date)
+);
+-- RLS: select to authenticated; written only by the sync-reference-rates Edge Function
+-- (service role, daily). Reference rates never change book values by themselves: they only
+-- pre-fill the rate the user confirms and value foreign balances "≈" on Home (R2, R4).
+```
+
 ## 3. Core tables
 
 ### profiles
@@ -269,6 +283,7 @@ All mutating RPCs take `p_idempotency_key uuid` and return the entry/row id. The
 | `reallocate(p_from_envelope, p_to_envelope, p_amount, p_idempotency_key)` | Move budget between envelopes | same budget |
 | `record_adjustment(p_account_id, p_target_balance, p_fx_rate, p_idempotency_key)` | Reconciliation | diff entry vs system:adjustment; ± Unallocated |
 | `record_revaluation(p_account_id, p_rate, p_idempotency_key)` | FX revaluation (R4) | foreign-currency account; outside the budget only the book value changes (reports) |
+| `fx_rate(p_from, p_to)` → `(rate text, source, as_of)` | Pre-fill rate and approximate totals: the newer of the user's last confirmed rate (only into the base currency) and the NBK rate crossed through KZT; a tie goes to the user's rate | not reversed; own entries only; no row when no rate exists |
 | `set_ai_consent(p_consent boolean)` | Grant (server time) or withdraw AI consent (PRD AI-5) | own profile |
 | `purge_account(p_user_id)` | Account deletion, called by the `delete-account` Edge Function | `service_role` only |
 | `reverse_entry(p_entry_id, p_idempotency_key)` | Undo/delete (R5) | not already reversed; not a reversal itself |
@@ -276,7 +291,7 @@ All mutating RPCs take `p_idempotency_key uuid` and return the entry/row id. The
 | `set_limit(...)` / `set_savings_goal(...)` / `create_category(...)` / `update_profile(...)` | Metadata | ownership |
 | `report_monthly(p_month)` / `report_yearly(p_year)` | Read aggregates (security invoker) | RLS |
 
-**Implemented in M1b:** `setup_budget`, `create_account`, `archive_account`, `record_income`, `record_expense`, `record_transfer`, `reallocate`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry` (income/expense/transfer), `set_ai_consent`, `purge_account`. Database-level guards added after review: R1 and "every entry has lines" are checked by deferred constraint triggers at commit; base-currency accounts must have base = amount on every line; budget base currency is immutable (R7); idempotency keys are serialised with advisory locks; at most 50 accounts per user; all trigger functions are SECURITY DEFINER because deferred triggers fire at commit under the caller's role. The rest (`change_budget_method`, `set_limit`, `set_savings_goal`, `create_category`, report RPCs) arrive with their milestones; until then the views in §6 cover reads. `update_profile` is not needed: the allowed profile columns are directly updatable under RLS.
+**Implemented in M1b:** `setup_budget`, `create_account`, `archive_account`, `record_income`, `record_expense`, `record_transfer`, `reallocate`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry` (income/expense/transfer), `set_ai_consent`, `purge_account`; `fx_rate` and `reference_rates` arrived with M3a (migration 0007). Database-level guards added after review: R1 and "every entry has lines" are checked by deferred constraint triggers at commit; base-currency accounts must have base = amount on every line; budget base currency is immutable (R7); idempotency keys are serialised with advisory locks; at most 50 accounts per user; all trigger functions are SECURITY DEFINER because deferred triggers fire at commit under the caller's role. The rest (`change_budget_method`, `set_limit`, `set_savings_goal`, `create_category`, report RPCs) arrive with their milestones; until then the views in §6 cover reads. `update_profile` is not needed: the allowed profile columns are directly updatable under RLS.
 
 **Errors.** Expected failures raise SQLSTATE `P0001` with the message set to a stable code, the same strings the TS domain uses (`rate_required`, `unknown_envelope`, `idempotency_conflict`, `not_authenticated`, …); `detail` carries an index where useful (custom budget validation). The client maps codes to localised messages. Privilege errors stay `42501`.
 

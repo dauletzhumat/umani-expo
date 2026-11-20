@@ -133,7 +133,7 @@ IDs are referenced from ROADMAP and tests.
 ## 7. Open questions
 
 1. Data residency: does KZ personal-data localisation apply to our user base and data categories? Is a Supabase region acceptable, or do we need self-hosted Postgres in KZ? (Blocks public launch, not development.)
-2. FX reference rates: user-entered only, or a reference feed (e.g. the National Bank of Kazakhstan's official rates) fetched by an Edge Function?
+2. ~~FX reference rates~~ — decided 2026-11-19: the National Bank of Kazakhstan's official rates, fetched daily by an Edge Function; the user's last confirmed rate wins when it is newer (DATABASE §2, `api.fx_rate`).
 3. Monetisation (subscription for the AI advisor?) affects AI rate limits and the paywall milestone.
 4. Minimum iOS version for SDK 58.
 5. Final brand assets (the current icon and splash are Expo defaults).

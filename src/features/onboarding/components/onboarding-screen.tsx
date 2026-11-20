@@ -132,7 +132,7 @@ export function OnboardingScreen({ enableLock }: OnboardingScreenProps) {
           error={amountError}
         />
         {saveFailed && (
-          <Text variant="footnote" color="negative" accessibilityLiveRegion="polite">
+          <Text variant="footnote" color="negative" accessibilityRole="alert" accessibilityLiveRegion="polite">
             {t('onboarding.error')}
           </Text>
         )}

@@ -39,7 +39,7 @@ export function SignInScreen() {
 
       <View style={styles.actions}>
         {error !== null && (
-          <Text variant="footnote" color="negative" accessibilityLiveRegion="polite">
+          <Text variant="footnote" color="negative" accessibilityRole="alert" accessibilityLiveRegion="polite">
             {t(error === 'unavailable' ? 'auth.errorUnavailable' : 'auth.errorFailed')}
           </Text>
         )}
