@@ -90,7 +90,7 @@ Invariant (checked in `api.setup_budget` / `api.change_budget_method`): the sum 
 System accounts (hidden) are created lazily per user and currency: they're the counterparties that keep every entry zero-sum. They're never shown as user accounts.
 
 ### categories
-`id, user_id, kind ('income'|'expense'), name, name_key, icon, default_envelope_id null, archived_at`. Default categories are seeded per user at onboarding from a localised template.
+`id, user_id, kind ('income'|'expense'), name, name_key, icon, default_envelope_id null, archived_at, idempotency_key, request_hash`. Default categories are seeded per user at onboarding from a localised template. A rename clears `name_key` (the user's name wins). Custom categories carry the creating call's idempotency key (unique per user). At most 100 active categories per user; custom names are unique per kind among active ones, case-insensitive (seeded defaults use `name_key` and are not compared; the UI warns).
 
 ### ledger_entries (journal header — append-only)
 | column | type | notes |
@@ -131,7 +131,7 @@ System accounts (hidden) are created lazily per user and currency: they're the c
 Envelope lines don't have to be zero-sum per entry (income adds to envelopes; expenses subtract). **Invariant E1**: for `allocation` entries they sum to 0. **Invariant R1** (§5a) ties envelopes to accounts.
 
 ### limits
-`id, user_id, envelope_id null, category_id null, period_month date (first of month) null = recurring, limit_minor bigint > 0`. Always in the budget base currency (no currency column). Check: exactly one of `envelope_id` / `category_id`.
+`id, user_id, envelope_id null, category_id null, period_month date (first of month) null = recurring, limit_minor bigint > 0`. Always in the budget base currency (no currency column). Check: exactly one of `envelope_id` / `category_id`. Unique per user, target and period (`coalesce(envelope_id, category_id)`, `coalesce(period_month, '0001-01-01')`), so `set_limit` is an upsert; a month-specific limit overrides the recurring one for that month. At most 200 limits per user.
 
 ### savings_goals
 `id, user_id, envelope_id → envelopes (kind savings), target_minor bigint > 0, target_date date null, archived_at`. Base currency. Progress = envelope balance / target. At most one active goal per envelope.
@@ -233,7 +233,13 @@ create view public.account_balances with (security_invoker = true) as
 --   Always from ledger_lines.base_amount_minor of user accounts (budgeted or not).
 --   Transfers, allocations, revaluations and adjustments are not income or expense.
 -- category_monthly: expense totals per category per month
+-- entry_history (M5, migration 0009): one row per entry and non-system account line
+--   (transfers have two), with is_reversed / reverses_entry_id so the UI hides reversed
+--   pairs, amounts as text, and the spending envelope of an expense. Allocation-only
+--   entries have no account line and are not listed.
 ```
+
+`api.limit_progress(p_month)` → `(limit_id, envelope_id, category_id, period_month, limit_minor text, spent_minor text)` (M5): the limits that apply to the month with what was spent, in base currency. Envelope limits count what left the envelope for expenses; category limits count the book value of expenses in the category on any account. Reversed entries and reversals don't count; limits on archived envelopes or categories are not returned. SECURITY DEFINER with every read filtered by the caller's uid, like every `api` function.
 
 If history grows large, add a `balance_snapshots` table refreshed by trigger or materialised per month. Not needed in v1.
 
@@ -288,10 +294,14 @@ All mutating RPCs take `p_idempotency_key uuid` and return the entry/row id. The
 | `purge_account(p_user_id)` | Account deletion, called by the `delete-account` Edge Function | `service_role` only |
 | `reverse_entry(p_entry_id, p_idempotency_key)` | Undo/delete (R5) | not already reversed; not a reversal itself |
 | `amend_entry(p_entry_id, p_new jsonb, p_idempotency_key)` | Edit = reversal + new entry, atomically | as above + validation of the new entry |
-| `set_limit(...)` / `set_savings_goal(...)` / `create_category(...)` / `update_profile(...)` | Metadata | ownership |
+| `create_category(p_kind, p_name, p_idempotency_key, p_default_envelope_id)` | Custom category (EXP-2); expense categories may name a default envelope | idempotent per key; name 1–40, unique per kind; ≤ 100; default envelope active, in the budget, not Unallocated; none for income |
+| `update_category(p_category_id, p_name, p_default_envelope_id, p_clear_default)` / `archive_category(p_category_id)` | Rename / change or clear the default envelope / hide from pickers (past entries keep the category) | own, active category; not set and clear at once; archiving twice is a no-op; category and limit changes are serialised per user (advisory lock) so name uniqueness and the caps hold |
+| `set_limit(p_limit, p_envelope_id, p_category_id, p_period_month)` / `delete_limit(p_limit_id)` | Monthly limit (EXP-4), upsert per target and period | exactly one target; spending envelope or own expense category; period = 1st of month or null; amount > 0; ≤ 200 |
+| `limit_progress(p_month)` | Read: applicable limits with spending (see §6) | own data only |
+| `set_savings_goal(...)` | Metadata | ownership |
 | `report_monthly(p_month)` / `report_yearly(p_year)` | Read aggregates (security invoker) | RLS |
 
-**Implemented in M1b:** `setup_budget`, `create_account`, `archive_account`, `record_income`, `record_expense`, `record_transfer`, `reallocate`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry` (income/expense/transfer), `set_ai_consent`, `purge_account`; `fx_rate` and `reference_rates` arrived with M3a (migration 0007); `change_budget_method` and `budget_method_changes` with M4a (migration 0008). Database-level guards added after review: R1 and "every entry has lines" are checked by deferred constraint triggers at commit; base-currency accounts must have base = amount on every line; budget base currency is immutable (R7); idempotency keys are serialised with advisory locks; at most 50 accounts per user; all trigger functions are SECURITY DEFINER because deferred triggers fire at commit under the caller's role. The rest (`change_budget_method`, `set_limit`, `set_savings_goal`, `create_category`, report RPCs) arrive with their milestones; until then the views in §6 cover reads. `update_profile` is not needed: the allowed profile columns are directly updatable under RLS.
+**Implemented in M1b:** `setup_budget`, `create_account`, `archive_account`, `record_income`, `record_expense`, `record_transfer`, `reallocate`, `record_adjustment`, `record_revaluation`, `reverse_entry`, `amend_entry` (income/expense/transfer), `set_ai_consent`, `purge_account`; `fx_rate` and `reference_rates` arrived with M3a (migration 0007); `change_budget_method` and `budget_method_changes` with M4a (migration 0008); `create_category`, `update_category`, `archive_category`, `set_limit`, `delete_limit`, `limit_progress` and the `entry_history` view with M5a (migration 0009). Database-level guards added after review: R1 and "every entry has lines" are checked by deferred constraint triggers at commit; base-currency accounts must have base = amount on every line; budget base currency is immutable (R7); idempotency keys are serialised with advisory locks; at most 50 accounts per user; all trigger functions are SECURITY DEFINER because deferred triggers fire at commit under the caller's role. The rest (`set_savings_goal`, report RPCs) arrive with their milestones; until then the views in §6 cover reads. `update_profile` is not needed: the allowed profile columns are directly updatable under RLS.
 
 **Errors.** Expected failures raise SQLSTATE `P0001` with the message set to a stable code, the same strings the TS domain uses (`rate_required`, `unknown_envelope`, `idempotency_conflict`, `not_authenticated`, …); `detail` carries an index where useful (custom budget validation). The client maps codes to localised messages. Privilege errors stay `42501`.
 
